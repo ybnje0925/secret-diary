@@ -12,7 +12,8 @@
       "Read(//c/Windows/Fonts/**)",
       "Bash(python \"C:\\\\Users\\\\choi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D------------------------------------\\\\3caa1e74-9c58-4462-a847-61e47840f1e5\\\\scratchpad\\\\gen_icons.py\")",
       "Bash(netstat -ano)",
-      "Bash(taskkill //PID 16952 //F)"
+      "Bash(taskkill //PID 16952 //F)",
+      "Bash(taskkill //PID 29604 //F)"
     ]
   }
 }

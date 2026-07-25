@@ -210,6 +210,17 @@ export default function AudioAnalysisModal({
         body: JSON.stringify(payload)
       });
 
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const rawText = await response.text();
+        console.error("Non-JSON response from /api/analyze-audio:", response.status, rawText.slice(0, 300));
+        throw new Error(
+          response.status === 413
+            ? "업로드한 파일이 너무 큽니다. 더 짧은 녹음 파일로 다시 시도해 주세요."
+            : "서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요."
+        );
+      }
+
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.error || "분석 요청 중 오류가 발생했습니다.");

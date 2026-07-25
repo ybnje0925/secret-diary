@@ -1,30 +1,33 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Person, CustomGroup, CategoryType } from "./types";
 import { initialPeople, initialGroups } from "./demoData";
 import ReviewModal from "./components/ReviewModal";
 import AudioAnalysisModal from "./components/AudioAnalysisModal";
 import PersonFormModal from "./components/PersonFormModal";
 import BackupRestore from "./components/BackupRestore";
-import { 
-  BookOpen, 
-  Search, 
-  Plus, 
-  Mic, 
-  FolderPlus, 
-  Clock, 
-  TrendingUp, 
-  Heart, 
-  Baby, 
-  Sparkles, 
-  Trash2, 
-  Edit3, 
-  UserPlus, 
-  Calendar, 
-  Briefcase, 
-  Grid, 
+import LockScreen from "./components/LockScreen";
+import { saveVault, VaultData } from "./vault";
+import {
+  BookOpen,
+  Search,
+  Plus,
+  Mic,
+  FolderPlus,
+  Clock,
+  TrendingUp,
+  Heart,
+  Baby,
+  Sparkles,
+  Trash2,
+  Edit3,
+  UserPlus,
+  Calendar,
+  Briefcase,
+  Grid,
   BookMarked,
   Filter,
-  CheckCircle2
+  CheckCircle2,
+  Lock
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -68,9 +71,19 @@ const getRelationBadgeClass = (category: string) => {
 };
 
 export default function App() {
+  // Encryption vault key lives in memory only for this tab's session — it is
+  // never persisted, so the app re-locks on every fresh load/reload.
+  const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
+
   const [people, setPeople] = useState<Person[]>([]);
   const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
-  
+
+  // React state updates are async/batched, so two saves fired back-to-back
+  // (e.g. clearing people then groups) can't safely read each other's latest
+  // value off state. Refs mirror the latest values synchronously instead.
+  const peopleRef = useRef<Person[]>([]);
+  const groupsRef = useRef<CustomGroup[]>([]);
+
   // Filtering & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryType | "전체">("전체");
@@ -91,50 +104,51 @@ export default function App() {
   // Group creation input
   const [newGroupInput, setNewGroupInput] = useState("");
 
-  // Load from LocalStorage on mount
-  useEffect(() => {
-    const storedPeople = localStorage.getItem("yongjja_people");
-    const storedGroups = localStorage.getItem("yongjja_groups");
-
-    if (storedPeople) {
-      try {
-        const parsed = JSON.parse(storedPeople);
-        setPeople(parsed);
-        if (parsed.length > 0) {
-          setSelectedPersonId(parsed[0].id);
-        }
-      } catch (e) {
-        setPeople(initialPeople);
-        setSelectedPersonId(initialPeople[0].id);
-      }
-    } else {
-      // Load initial mock datasets for wonderful default experience
-      setPeople(initialPeople);
-      localStorage.setItem("yongjja_people", JSON.stringify(initialPeople));
-      setSelectedPersonId(initialPeople[0].id);
+  // Called by LockScreen once the vault is unlocked (or freshly created).
+  // Real data only — no demo/dummy data is ever auto-seeded here. First-time
+  // users see a genuine empty state and can opt into sample data via the
+  // "데모 데이터 로드" button if they want it.
+  const handleUnlocked = (key: CryptoKey, data: VaultData) => {
+    setVaultKey(key);
+    setPeople(data.people);
+    setCustomGroups(data.customGroups);
+    peopleRef.current = data.people;
+    groupsRef.current = data.customGroups;
+    if (data.people.length > 0) {
+      setSelectedPersonId(data.people[0].id);
     }
+  };
 
-    if (storedGroups) {
-      try {
-        setCustomGroups(JSON.parse(storedGroups));
-      } catch (e) {
-        setCustomGroups(initialGroups);
-      }
-    } else {
-      setCustomGroups(initialGroups);
-      localStorage.setItem("yongjja_groups", JSON.stringify(initialGroups));
-    }
-  }, []);
+  // Re-lock the app: forget the in-memory key so the vault must be unlocked
+  // again with the PIN. The encrypted data on disk is untouched.
+  const handleLock = () => {
+    setVaultKey(null);
+    setPeople([]);
+    setCustomGroups([]);
+    peopleRef.current = [];
+    groupsRef.current = [];
+    setSelectedPersonId(null);
+    setActiveMobileTab("list");
+  };
 
-  // Save to LocalStorage whenever state changes
+  const persistVault = (nextPeople: Person[], nextGroups: CustomGroup[]) => {
+    peopleRef.current = nextPeople;
+    groupsRef.current = nextGroups;
+    if (!vaultKey) return;
+    saveVault(vaultKey, { people: nextPeople, customGroups: nextGroups }).catch((err) => {
+      console.error("Failed to persist encrypted vault:", err);
+    });
+  };
+
+  // Save to the encrypted local vault whenever state changes
   const savePeopleToLocalStorage = (updatedPeople: Person[]) => {
     setPeople(updatedPeople);
-    localStorage.setItem("yongjja_people", JSON.stringify(updatedPeople));
+    persistVault(updatedPeople, groupsRef.current);
   };
 
   const saveGroupsToLocalStorage = (updatedGroups: CustomGroup[]) => {
     setCustomGroups(updatedGroups);
-    localStorage.setItem("yongjja_groups", JSON.stringify(updatedGroups));
+    persistVault(peopleRef.current, updatedGroups);
   };
 
   // Pre-load original sample datasets if lists empty
@@ -262,6 +276,11 @@ export default function App() {
 
   const selectedPerson = people.find(p => p.id === selectedPersonId) || null;
 
+  // Gate the entire app behind the encrypted vault lock screen.
+  if (!vaultKey) {
+    return <LockScreen onUnlocked={handleUnlocked} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#fdfaf6] pt-4 pb-28 md:py-6 px-4 md:px-8 font-sans text-[#4a433a]">
       
@@ -301,6 +320,15 @@ export default function App() {
             className="py-2 px-4 md:py-2.5 md:px-5 bg-[#ff6b6b] hover:bg-[#e05a5a] text-white font-bold rounded-full text-[11px] md:text-xs transition-all shadow-md shadow-red-100 flex items-center gap-1.5 whitespace-nowrap"
           >
             <Mic className="w-3.5 h-3.5" /> 음성 녹음 & AI 분석
+          </button>
+
+          <button
+            id="lock-app-btn"
+            onClick={handleLock}
+            title="비밀노트 잠그기"
+            className="p-2 md:p-2.5 bg-white hover:bg-[#f3f0ea] text-[#7c7267] font-bold rounded-full border border-[#ece5d8] transition-all shrink-0"
+          >
+            <Lock className="w-3.5 h-3.5" />
           </button>
 
           {people.length === 0 && (
@@ -593,6 +621,7 @@ export default function App() {
           <BackupRestore
             people={people}
             customGroups={customGroups}
+            vaultKey={vaultKey}
             onImport={handleImportBackup}
             onClearAll={handleClearAllData}
           />

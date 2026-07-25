@@ -1,10 +1,12 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Person, CustomGroup } from "../types";
-import { Download, Upload, Trash2, ShieldAlert } from "lucide-react";
+import { Download, Upload, Trash2, ShieldAlert, KeyRound } from "lucide-react";
+import { encryptBackupPayload, decryptBackupPayload, parseBackupFile } from "../vault";
 
 interface BackupRestoreProps {
   people: Person[];
   customGroups: CustomGroup[];
+  vaultKey: CryptoKey;
   onImport: (people: Person[], customGroups: CustomGroup[]) => void;
   onClearAll: () => void;
 }
@@ -12,23 +14,34 @@ interface BackupRestoreProps {
 export default function BackupRestore({
   people,
   customGroups,
+  vaultKey,
   onImport,
   onClearAll
 }: BackupRestoreProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Export current data as JSON file
-  const handleExport = () => {
+  // Set only while an imported backup turns out to be encrypted with a PIN
+  // that may differ from this device's current one (e.g. an older backup, or
+  // one made on another device) — we need that specific PIN to decrypt it.
+  const [pendingBackup, setPendingBackup] = useState<{ salt: string; payload: string } | null>(null);
+  const [backupPin, setBackupPin] = useState("");
+  const [backupError, setBackupError] = useState<string | null>(null);
+
+  // Export current data as an encrypted backup file — never plaintext, so a
+  // leaked/misplaced backup file alone doesn't expose anyone's information.
+  const handleExport = async () => {
+    const { salt, payload } = await encryptBackupPayload(vaultKey, { people, customGroups });
     const dataStr = JSON.stringify({
-      version: "1.0",
+      version: "2.0",
+      encrypted: true,
       exportDate: new Date().toISOString(),
-      people,
-      customGroups
+      salt,
+      payload
     }, null, 2);
-    
+
     const blob = new Blob([dataStr], { type: "application/json" });
     const url = URL.createObjectURL(blob);
-    
+
     const link = document.createElement("a");
     link.href = url;
     link.download = `용쨔의_비밀노트_백업_${new Date().toISOString().split("T")[0]}.json`;
@@ -38,7 +51,8 @@ export default function BackupRestore({
     URL.revokeObjectURL(url);
   };
 
-  // Import data from local JSON file
+  // Import data from a local backup file — supports both the current
+  // encrypted format and the legacy plaintext format from older versions.
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -46,12 +60,14 @@ export default function BackupRestore({
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const json = JSON.parse(event.target?.result as string);
-        if (json.people && Array.isArray(json.people)) {
-          onImport(json.people, json.customGroups || []);
+        const parsed = parseBackupFile(event.target?.result as string);
+        if (parsed.format === "plain") {
+          onImport(parsed.data.people, parsed.data.customGroups);
           alert("🎉 성공적으로 백업 데이터를 가져왔습니다!");
         } else {
-          alert("⚠️ 올바른 용쨔의 비밀노트 백업 파일이 아닙니다.");
+          setBackupError(null);
+          setBackupPin("");
+          setPendingBackup({ salt: parsed.salt, payload: parsed.payload });
         }
       } catch (err) {
         alert("⚠️ 파일을 분석하는 데 실패했습니다. 파일이 깨졌는지 확인해 주세요.");
@@ -59,6 +75,21 @@ export default function BackupRestore({
     };
     reader.readAsText(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDecryptPendingBackup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pendingBackup) return;
+    setBackupError(null);
+    try {
+      const data = await decryptBackupPayload(backupPin, pendingBackup.salt, pendingBackup.payload);
+      onImport(data.people, data.customGroups);
+      setPendingBackup(null);
+      setBackupPin("");
+      alert("🎉 성공적으로 백업 데이터를 가져왔습니다!");
+    } catch (err) {
+      setBackupError("이 백업 파일의 비밀번호가 일치하지 않습니다.");
+    }
   };
 
   const triggerFileInput = () => {
@@ -117,6 +148,42 @@ export default function BackupRestore({
           <Trash2 className="w-3.5 h-3.5" /> 데이터 전체 삭제
         </button>
       </div>
+
+      {pendingBackup && (
+        <form
+          onSubmit={handleDecryptPendingBackup}
+          className="w-full lg:w-auto flex flex-wrap items-center gap-2 bg-white border border-[#ece5d8] rounded-2xl p-3"
+        >
+          <span className="text-[11px] text-[#7c7267] font-bold flex items-center gap-1 whitespace-nowrap">
+            <KeyRound className="w-3.5 h-3.5 text-[#ff6b6b]" /> 이 백업의 비밀번호:
+          </span>
+          <input
+            id="backup-import-pin-input"
+            type="password"
+            value={backupPin}
+            onChange={(e) => setBackupPin(e.target.value)}
+            autoFocus
+            className="text-xs bg-[#f3f0ea] border-none rounded-lg px-2.5 py-1.5 text-[#4a433a] focus:outline-none focus:ring-1 focus:ring-[#ff6b6b] w-32"
+          />
+          <button
+            type="submit"
+            disabled={!backupPin}
+            className="py-1.5 px-3 bg-[#352f28] hover:bg-black disabled:opacity-40 text-white rounded-lg text-[11px] font-bold"
+          >
+            확인
+          </button>
+          <button
+            type="button"
+            onClick={() => { setPendingBackup(null); setBackupPin(""); setBackupError(null); }}
+            className="py-1.5 px-3 text-[#a39788] hover:text-[#352f28] text-[11px] font-bold"
+          >
+            취소
+          </button>
+          {backupError && (
+            <span className="text-[11px] text-[#ef4444] font-medium w-full">{backupError}</span>
+          )}
+        </form>
+      )}
     </div>
   );
 }

@@ -160,6 +160,13 @@ app.post("/api/analyze-audio", async (req, res) => {
   }
 });
 
+// Any unmatched /api/* request must fail as JSON, never fall through to the
+// SPA's HTML catch-all — that HTML response is what breaks the frontend's
+// response.json() call with "Unexpected token '<'" style parse errors.
+app.use("/api", (req, res) => {
+  res.status(404).json({ success: false, error: "요청하신 API 엔드포인트를 찾을 수 없습니다." });
+});
+
 // Helper function to simulate analysis when GEMINI_API_KEY is not configured
 function simulateAnalysis(scriptText: string, selectedName?: string) {
   const name = selectedName || "김민수";
@@ -244,6 +251,20 @@ async function startServer() {
     });
     console.log("Serving static distribution files in production mode.");
   }
+
+  // Final safety net: guarantee every error response is JSON (never Express's
+  // default HTML error page), especially body-parser's "entity too large"
+  // error when an audio upload exceeds the size limit below.
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled server error:", err);
+    if (res.headersSent) return next(err);
+    const status = err.status || err.statusCode || 500;
+    const message =
+      err.type === "entity.too.large"
+        ? "업로드한 파일이 너무 큽니다. 더 짧은 녹음 파일로 다시 시도해 주세요."
+        : err.message || "서버 오류가 발생했습니다.";
+    res.status(status).json({ success: false, error: message });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[용쨔의 비밀노트] Server running on http://localhost:${PORT}`);
