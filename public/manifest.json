@@ -1,0 +1,18 @@
+{
+  "name": "용쨔의 비밀노트",
+  "short_name": "비밀노트",
+  "description": "소중한 지인들의 정보를 관리하고 미팅 1분 전 빠르게 복습하는 비밀 다이어리",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "lang": "ko",
+  "background_color": "#FAF7F2",
+  "theme_color": "#ff6b6b",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,11 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,900;1,400&family=Nanum+Pen+Script&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&family=Nanum+Pen+Script&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-outfit: 'Outfit', sans-serif;
+  /* 돋움체 계열 고딕 폰트를 메인 글씨체로 사용 (이름/제목에 쓰이던 세리프체 제거) */
+  --font-sans: 'Noto Sans KR', 'Malgun Gothic', '돋움', system-ui, sans-serif;
+  --font-serif: 'Noto Sans KR', 'Malgun Gothic', '돋움', system-ui, sans-serif;
   --font-hand: 'Nanum Pen Script', cursive;
-  --font-serif: 'Playfair Display', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
 }
 
 /* Notebook styling helpers */

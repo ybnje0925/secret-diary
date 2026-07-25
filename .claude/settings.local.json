@@ -4,7 +4,15 @@
       "Bash(npm install *)",
       "Bash(mkdir -p \"/d/블로그/용쨔푸리의 블로그세상/용쨔의-비밀노트/.claude\")",
       "Bash(npm run *)",
-      "Bash(sleep 3 && cat \"C:\\\\Users\\\\choi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D------------------------------------\\\\3caa1e74-9c58-4462-a847-61e47840f1e5\\\\tasks\\\\boav12aoh.output\")"
+      "Bash(sleep 3 && cat \"C:\\\\Users\\\\choi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D------------------------------------\\\\3caa1e74-9c58-4462-a847-61e47840f1e5\\\\tasks\\\\boav12aoh.output\")",
+      "Bash(python3 -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(python -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")",
+      "Bash(python -c \"from PIL import Image; print\\('pillow ok'\\)\")",
+      "Read(//c/Windows/Fonts/**)",
+      "Bash(python \"C:\\\\Users\\\\choi\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D------------------------------------\\\\3caa1e74-9c58-4462-a847-61e47840f1e5\\\\scratchpad\\\\gen_icons.py\")",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //PID 16952 //F)"
     ]
   }
 }
