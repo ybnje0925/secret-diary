@@ -1,0 +1,6 @@
+{
+  "name": "용쨔의 비밀노트",
+  "description": "소중한 지인들의 세심한 정보(관계, 자녀, 취미, 메모)를 관리하고 미팅 1분 전 빠르게 복습할 수 있는 비밀 다이어리 형태의 지인 관계 & 미팅 리마인드 웹 앱",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
