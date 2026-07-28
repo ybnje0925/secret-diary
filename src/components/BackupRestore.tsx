@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Person, CustomGroup } from "../types";
-import { Download, Upload, Trash2, ShieldAlert, KeyRound } from "lucide-react";
+import { Download, Upload, Trash2, KeyRound } from "lucide-react";
 import { encryptBackupPayload, decryptBackupPayload, parseBackupFile } from "../vault";
 
 interface BackupRestoreProps {
@@ -63,14 +63,14 @@ export default function BackupRestore({
         const parsed = parseBackupFile(event.target?.result as string);
         if (parsed.format === "plain") {
           onImport(parsed.data.people, parsed.data.customGroups);
-          alert("🎉 성공적으로 백업 데이터를 가져왔습니다!");
+          alert("성공적으로 백업 데이터를 가져왔습니다!");
         } else {
           setBackupError(null);
           setBackupPin("");
           setPendingBackup({ salt: parsed.salt, payload: parsed.payload });
         }
       } catch (err) {
-        alert("⚠️ 파일을 분석하는 데 실패했습니다. 파일이 깨졌는지 확인해 주세요.");
+        alert("파일을 분석하는 데 실패했습니다. 파일이 깨졌는지 확인해 주세요.");
       }
     };
     reader.readAsText(file);
@@ -86,7 +86,7 @@ export default function BackupRestore({
       onImport(data.people, data.customGroups);
       setPendingBackup(null);
       setBackupPin("");
-      alert("🎉 성공적으로 백업 데이터를 가져왔습니다!");
+      alert("성공적으로 백업 데이터를 가져왔습니다!");
     } catch (err) {
       setBackupError("이 백업 파일의 비밀번호가 일치하지 않습니다.");
     }
@@ -98,7 +98,7 @@ export default function BackupRestore({
 
   const confirmClearAll = () => {
     const doubleCheck = window.confirm(
-      "⚠️ 정말로 모든 지인 데이터와 대화 기록을 지우시겠습니까?\n이 작업은 되돌릴 수 없습니다. 삭제 전에 백업을 다운로드하시는 것을 추천합니다."
+      "정말로 모든 지인 데이터와 대화 기록을 지우시겠습니까?\n이 작업은 되돌릴 수 없습니다. 삭제 전에 백업을 다운로드하시는 것을 추천합니다."
     );
     if (doubleCheck) {
       onClearAll();
@@ -106,13 +106,11 @@ export default function BackupRestore({
   };
 
   return (
-    <div className="bg-[#fff9f0] border border-[#ece5d8] rounded-3xl p-5 shadow-sm flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 text-xs">
+    <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 text-xs">
       <div>
-        <p className="font-serif text-sm font-bold text-[#352f28] flex items-center gap-1.5">
-          <span>📓 비밀 다이어리 안전 백업 및 초기화</span>
-        </p>
-        <p className="text-[11px] text-[#a39788] mt-1 leading-relaxed">
-          현재 기록된 {people.length}명의 소중한 지인 정보와 대화 히스토리를 로컬 파일로 백업해 보관하거나 초기화할 수 있습니다.
+        <p className="text-sm font-bold text-slate-900">데이터 백업 및 초기화</p>
+        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+          현재 기록된 {people.length}명의 지인 정보와 대화 히스토리를 로컬 파일로 백업해 보관하거나 초기화할 수 있습니다.
         </p>
       </div>
 
@@ -120,17 +118,17 @@ export default function BackupRestore({
         <button
           id="export-backup-btn"
           onClick={handleExport}
-          className="py-2 px-4 bg-white hover:bg-[#f3f0ea] text-[#352f28] font-bold rounded-full border border-[#ece5d8] shadow-sm transition-all flex items-center gap-1.5"
+          className="py-2 px-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg border border-slate-200 transition-all flex items-center gap-1.5"
         >
-          <Download className="w-3.5 h-3.5 text-[#ff6b6b]" /> 백업 파일 다운로드
+          <Download className="w-3.5 h-3.5 text-teal-700" /> 백업 파일 다운로드
         </button>
 
         <button
           id="import-backup-btn"
           onClick={triggerFileInput}
-          className="py-2 px-4 bg-white hover:bg-[#f3f0ea] text-[#352f28] font-bold rounded-full border border-[#ece5d8] shadow-sm transition-all flex items-center gap-1.5"
+          className="py-2 px-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg border border-slate-200 transition-all flex items-center gap-1.5"
         >
-          <Upload className="w-3.5 h-3.5 text-[#ff6b6b]" /> 백업 가져오기
+          <Upload className="w-3.5 h-3.5 text-teal-700" /> 백업 가져오기
           <input
             type="file"
             ref={fileInputRef}
@@ -143,7 +141,7 @@ export default function BackupRestore({
         <button
           id="clear-all-data-btn"
           onClick={confirmClearAll}
-          className="py-2 px-4 bg-[#fdf2f2] hover:bg-[#fde8e8] text-[#ef4444] font-bold rounded-full border border-[#fecaca] transition-all flex items-center gap-1.5"
+          className="py-2 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg border border-rose-200 transition-all flex items-center gap-1.5"
         >
           <Trash2 className="w-3.5 h-3.5" /> 데이터 전체 삭제
         </button>
@@ -152,10 +150,10 @@ export default function BackupRestore({
       {pendingBackup && (
         <form
           onSubmit={handleDecryptPendingBackup}
-          className="w-full lg:w-auto flex flex-wrap items-center gap-2 bg-white border border-[#ece5d8] rounded-2xl p-3"
+          className="w-full lg:w-auto flex flex-wrap items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3"
         >
-          <span className="text-[11px] text-[#7c7267] font-bold flex items-center gap-1 whitespace-nowrap">
-            <KeyRound className="w-3.5 h-3.5 text-[#ff6b6b]" /> 이 백업의 비밀번호:
+          <span className="text-[11px] text-slate-500 font-bold flex items-center gap-1 whitespace-nowrap">
+            <KeyRound className="w-3.5 h-3.5 text-teal-700" /> 이 백업의 비밀번호:
           </span>
           <input
             id="backup-import-pin-input"
@@ -163,24 +161,24 @@ export default function BackupRestore({
             value={backupPin}
             onChange={(e) => setBackupPin(e.target.value)}
             autoFocus
-            className="text-xs bg-[#f3f0ea] border-none rounded-lg px-2.5 py-1.5 text-[#4a433a] focus:outline-none focus:ring-1 focus:ring-[#ff6b6b] w-32"
+            className="text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-teal-600 w-32"
           />
           <button
             type="submit"
             disabled={!backupPin}
-            className="py-1.5 px-3 bg-[#352f28] hover:bg-black disabled:opacity-40 text-white rounded-lg text-[11px] font-bold"
+            className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white rounded-lg text-[11px] font-bold"
           >
             확인
           </button>
           <button
             type="button"
             onClick={() => { setPendingBackup(null); setBackupPin(""); setBackupError(null); }}
-            className="py-1.5 px-3 text-[#a39788] hover:text-[#352f28] text-[11px] font-bold"
+            className="py-1.5 px-3 text-slate-400 hover:text-slate-700 text-[11px] font-bold"
           >
             취소
           </button>
           {backupError && (
-            <span className="text-[11px] text-[#ef4444] font-medium w-full">{backupError}</span>
+            <span className="text-[11px] text-rose-600 font-medium w-full">{backupError}</span>
           )}
         </form>
       )}

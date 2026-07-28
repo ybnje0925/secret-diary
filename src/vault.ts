@@ -1,4 +1,4 @@
-import { Person, CustomGroup } from "./types";
+import { Person, CustomGroup, ChildInfo, Preferences, EventHistoryItem } from "./types";
 import { generateSalt, deriveKey, encryptText, decryptText, toBase64, fromBase64 } from "./crypto";
 
 const SALT_KEY = "yongjja_salt";
@@ -11,6 +11,71 @@ export interface VaultData {
   customGroups: CustomGroup[];
 }
 
+// Upgrades a person record from any earlier schema version to the current
+// one. Old builds stored a flat `memo` string and no eventsHistory/
+// remindIntervalDays — this preserves that data instead of discarding it.
+function migrateChild(raw: any): ChildInfo {
+  return {
+    name: raw?.name || "",
+    birthDate: raw?.birthDate || undefined,
+    ageOrBirth: raw?.ageOrBirth || "",
+    memo: raw?.memo || ""
+  };
+}
+
+function migratePreferences(raw: any): Preferences {
+  if (raw?.preferences) {
+    return {
+      food: raw.preferences.food || "",
+      hobbies: raw.preferences.hobbies || "",
+      notes: raw.preferences.notes || ""
+    };
+  }
+  // Pre-schema-v2 records kept everything in one free-text `memo` field.
+  return { food: "", hobbies: "", notes: typeof raw?.memo === "string" ? raw.memo : "" };
+}
+
+function migrateEventsHistory(raw: any): EventHistoryItem[] {
+  if (!Array.isArray(raw?.eventsHistory)) return [];
+  return raw.eventsHistory.map((e: any) => ({
+    id: e.id || "e_" + Math.random().toString(36).slice(2),
+    date: e.date || "",
+    type: e.type || "기타",
+    amountOrGift: e.amountOrGift || "",
+    note: e.note || ""
+  }));
+}
+
+export function migratePersonSchema(raw: any): Person {
+  return {
+    id: raw.id,
+    name: raw.name || "",
+    phone: raw.phone || "",
+    company: raw.company || "",
+    category: raw.category || "지인",
+    groups: Array.isArray(raw.groups) ? raw.groups : [],
+    familyInfo: {
+      spouseName: raw.familyInfo?.spouseName || undefined,
+      children: Array.isArray(raw.familyInfo?.children) ? raw.familyInfo.children.map(migrateChild) : []
+    },
+    preferences: migratePreferences(raw),
+    eventsHistory: migrateEventsHistory(raw),
+    avatarEmoji: raw.avatarEmoji || "👤",
+    avatarBg: raw.avatarBg || "",
+    lastContactDate: raw.lastContactDate || "",
+    lastContactMedium: raw.lastContactMedium || "기타",
+    remindIntervalDays: typeof raw.remindIntervalDays === "number" ? raw.remindIntervalDays : undefined,
+    history: Array.isArray(raw.history) ? raw.history : []
+  };
+}
+
+function migrateVaultData(raw: any): VaultData {
+  return {
+    people: Array.isArray(raw?.people) ? raw.people.map(migratePersonSchema) : [],
+    customGroups: Array.isArray(raw?.customGroups) ? raw.customGroups : []
+  };
+}
+
 export function hasVault(): boolean {
   return localStorage.getItem(VAULT_KEY) !== null && localStorage.getItem(SALT_KEY) !== null;
 }
@@ -18,19 +83,19 @@ export function hasVault(): boolean {
 // Pre-encryption installs stored data as plaintext under these keys — detect
 // it so first-time PIN setup can migrate it instead of discarding it.
 export function readLegacyPlaintextData(): VaultData {
-  let people: Person[] = [];
+  let rawPeople: any[] = [];
   let customGroups: CustomGroup[] = [];
   try {
-    people = JSON.parse(localStorage.getItem(LEGACY_PEOPLE_KEY) || "[]");
+    rawPeople = JSON.parse(localStorage.getItem(LEGACY_PEOPLE_KEY) || "[]");
   } catch (e) {
-    people = [];
+    rawPeople = [];
   }
   try {
     customGroups = JSON.parse(localStorage.getItem(LEGACY_GROUPS_KEY) || "[]");
   } catch (e) {
     customGroups = [];
   }
-  return { people, customGroups };
+  return { people: rawPeople.map(migratePersonSchema), customGroups };
 }
 
 export function hasLegacyPlaintextData(): boolean {
@@ -52,7 +117,8 @@ export async function createVault(pin: string, initialData: VaultData): Promise<
   return key;
 }
 
-// Returns the derived key + decrypted data, or throws if the PIN is wrong.
+// Returns the derived key + decrypted (schema-migrated) data, or throws if
+// the PIN is wrong.
 export async function unlockVault(pin: string): Promise<{ key: CryptoKey; data: VaultData }> {
   const saltB64 = localStorage.getItem(SALT_KEY);
   const vaultPayload = localStorage.getItem(VAULT_KEY);
@@ -62,7 +128,7 @@ export async function unlockVault(pin: string): Promise<{ key: CryptoKey; data: 
   const salt = fromBase64(saltB64);
   const key = await deriveKey(pin, salt);
   const json = await decryptText(key, vaultPayload);
-  const data = JSON.parse(json) as VaultData;
+  const data = migrateVaultData(JSON.parse(json));
   return { key, data };
 }
 
@@ -82,7 +148,7 @@ export async function decryptBackupPayload(
   const salt = fromBase64(saltB64);
   const key = await deriveKey(pin, salt);
   const json = await decryptText(key, payload);
-  return JSON.parse(json) as VaultData;
+  return migrateVaultData(JSON.parse(json));
 }
 
 // Encrypt data for a downloadable backup file using the CURRENT session key,
@@ -109,7 +175,7 @@ export function parseBackupFile(rawJson: string): ParsedBackup {
     return { format: "encrypted", salt: json.salt, payload: json.payload };
   }
   if (Array.isArray(json.people)) {
-    return { format: "plain", data: { people: json.people, customGroups: json.customGroups || [] } };
+    return { format: "plain", data: migrateVaultData(json) };
   }
   throw new Error("올바른 용쨔의 비밀노트 백업 파일이 아닙니다.");
 }

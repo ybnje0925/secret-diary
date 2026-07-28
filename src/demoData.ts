@@ -19,15 +19,23 @@ export const initialPeople: Person[] = [
     familyInfo: {
       spouseName: "이지아",
       children: [
-        { name: "김하진", ageOrBirth: "8살", memo: "올해 초등학교 입학, 테니스 라켓에 관심 보임" },
-        { name: "김하린", ageOrBirth: "5살", memo: "유치원 적응 완료, 뽀로로보다 블록놀이를 선호함" }
+        { name: "김하진", birthDate: "2018-03-11", ageOrBirth: "", memo: "초등학교 입학, 테니스 라켓에 관심 보임" },
+        { name: "김하린", birthDate: "2021-09-02", ageOrBirth: "", memo: "유치원 적응 완료, 뽀로로보다 블록놀이를 선호함" }
       ]
     },
-    memo: "테니스 구력 5년. 백핸드가 강력함. 드립커피 애호가이며 단 음식을 싫어하고 삼겹살을 매우 좋아함. 최근 사업 확장으로 바쁜 상태.",
+    preferences: {
+      food: "드립커피 애호가, 단 음식은 싫어함, 삼겹살 매우 좋아함",
+      hobbies: "테니스 구력 5년, 백핸드가 강력함",
+      notes: "최근 사업 확장으로 바쁜 상태"
+    },
+    eventsHistory: [
+      { id: "e1_1", date: "2025-05-10", type: "축의금", amountOrGift: "10만원", note: "지인 결혼식 축의금" }
+    ],
     avatarEmoji: "🎾",
     avatarBg: "bg-emerald-100 text-emerald-800",
     lastContactDate: "2026-07-15",
     lastContactMedium: "식사",
+    remindIntervalDays: 60,
     history: [
       {
         id: "h1_1",
@@ -53,14 +61,20 @@ export const initialPeople: Person[] = [
     familyInfo: {
       spouseName: "민지훈",
       children: [
-        { name: "민우진", ageOrBirth: "6살", memo: "영어유치원 블루반 재원 중, 자동차 장난감을 극도로 좋아함" }
+        { name: "민우진", birthDate: "2020-05-20", ageOrBirth: "", memo: "영어유치원 블루반 재원 중, 자동차 장난감을 극도로 좋아함" }
       ]
     },
-    memo: "고등학교 시절 미술반 동창. 디자인 안목이 세련되고 빈티지 소품 수집이 취미. 우유 알레르기가 있어서 카페 가거나 식사할 때 락토프리 음료나 오트 밀크 위주로 주문 필수.",
+    preferences: {
+      food: "우유 알레르기 — 카페/식사 시 락토프리 또는 오트 밀크 필수",
+      hobbies: "빈티지 소품 수집",
+      notes: "고등학교 시절 미술반 동창, 디자인 안목이 세련됨"
+    },
+    eventsHistory: [],
     avatarEmoji: "🎨",
-    avatarBg: "bg-peach-100 text-peach-800 bg-orange-100 text-orange-800",
+    avatarBg: "bg-orange-100 text-orange-800",
     lastContactDate: "2026-07-19",
     lastContactMedium: "통화",
+    remindIntervalDays: 30,
     history: [
       {
         id: "h2_1",
@@ -81,11 +95,19 @@ export const initialPeople: Person[] = [
       spouseName: "임수경",
       children: []
     },
-    memo: "전형적인 미식가. 서울 중구 일대 노포 맛집 지도가 머릿속에 있는 분. 골프 애호가이며 주말마다 필드에 나감. 와인은 드라이한 레드 와인을 선호하며 막걸리도 좋아함. 비즈니스 미팅 시 날씨나 건강 안부로 분위기를 띄우면 미팅 분위기가 매우 부드러워짐.",
+    preferences: {
+      food: "드라이한 레드 와인, 막걸리도 좋아함, 서울 중구 노포 맛집에 정통함",
+      hobbies: "골프 애호가, 주말마다 필드에 나감",
+      notes: "비즈니스 미팅 시 날씨/건강 안부로 분위기를 띄우면 부드러워짐"
+    },
+    eventsHistory: [
+      { id: "e3_1", date: "2025-09-20", type: "선물", amountOrGift: "명절 한과 세트", note: "추석 선물 발송" }
+    ],
     avatarEmoji: "👔",
     avatarBg: "bg-blue-100 text-blue-800",
     lastContactDate: "2026-07-10",
     lastContactMedium: "대면",
+    remindIntervalDays: 90,
     history: [
       {
         id: "h3_1",
@@ -105,15 +127,21 @@ export const initialPeople: Person[] = [
     familyInfo: {
       spouseName: "나영진",
       children: [
-        { name: "나소희", ageOrBirth: "4살", memo: "동네 어린이집 햇살반, 딸기라면 자다가도 깸" },
-        { name: "나정우", ageOrBirth: "2살", memo: "걸음마를 최근 떼서 집안 온 군데를 헤집고 다님" }
+        { name: "나소희", birthDate: "2022-02-14", ageOrBirth: "", memo: "동네 어린이집 햇살반, 딸기라면 자다가도 깸" },
+        { name: "나정우", birthDate: "2024-06-01", ageOrBirth: "", memo: "걸음마를 최근 떼서 집안 온 군데를 헤집고 다님" }
       ]
     },
-    memo: "사촌 동생. 직장이 소아과라 자녀 건강 관련 조언을 많이 얻음. 아로마 테라피가 취미며 스트레스 해소법으로 밤하늘 별 보며 드라이브하기를 즐김. 오렌지 향 디퓨저 선물을 아주 기쁘게 받았던 이력이 있음.",
+    preferences: {
+      food: "오렌지 향 디퓨저 선물을 아주 기쁘게 받았던 이력이 있음",
+      hobbies: "아로마 테라피, 밤하늘 별 보며 드라이브하기",
+      notes: "사촌 동생, 직장이 소아과라 자녀 건강 관련 조언을 많이 얻음"
+    },
+    eventsHistory: [],
     avatarEmoji: "🌸",
     avatarBg: "bg-pink-100 text-pink-800",
     lastContactDate: "2026-07-20",
     lastContactMedium: "카톡",
+    remindIntervalDays: 30,
     history: [
       {
         id: "h4_1",

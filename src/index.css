@@ -1,11 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&family=Nanum+Pen+Script&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* 돋움체 계열 고딕 폰트를 메인 글씨체로 사용 (이름/제목에 쓰이던 세리프체 제거) */
+  /* 돋움체 계열 고딕 폰트를 메인 글씨체로 사용 */
   --font-sans: 'Noto Sans KR', 'Malgun Gothic', '돋움', system-ui, sans-serif;
-  --font-serif: 'Noto Sans KR', 'Malgun Gothic', '돋움', system-ui, sans-serif;
-  --font-hand: 'Nanum Pen Script', cursive;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
@@ -13,25 +11,18 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Notebook styling helpers */
-.paper-lines {
-  background-image: linear-gradient(#f1f1f1 1px, transparent 1px);
-  background-size: 100% 1.75rem;
-  line-height: 1.75rem;
-}
-
-/* Custom scrollbar to match the retro look */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #fdfcfb;
+  background: #f8fafc;
 }
 ::-webkit-scrollbar-thumb {
-  background: #e4e2dd;
+  background: #cbd5e1;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #d4d2cd;
+  background: #94a3b8;
 }

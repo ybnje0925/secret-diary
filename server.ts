@@ -9,9 +9,9 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-// Set up large payload limits for audio base64 uploads
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// Pasted chat text only now (no more audio uploads), so a small limit is plenty.
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ limit: "2mb", extended: true }));
 
 // Initialize Gemini client lazily to avoid crashing if API key is missing
 let aiClient: GoogleGenAI | null = null;
@@ -34,10 +34,16 @@ function getGeminiClient() {
   return aiClient;
 }
 
-// REST API for audio/voice recording analysis using Gemini
-app.post("/api/analyze-audio", async (req, res) => {
+// REST API for quick-capture text analysis (STT one-liner memo or pasted
+// KakaoTalk/conversation text) using Gemini.
+app.post("/api/summarize-text", async (req, res) => {
   try {
-    const { base64Data, mimeType, scriptText, selectedPersonName } = req.body;
+    const { scriptText, selectedPersonName } = req.body;
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    if (!scriptText || !String(scriptText).trim()) {
+      return res.status(400).json({ success: false, error: "분석할 텍스트가 필요합니다." });
+    }
 
     const ai = getGeminiClient();
     const apiKey = process.env.GEMINI_API_KEY;
@@ -45,8 +51,8 @@ app.post("/api/analyze-audio", async (req, res) => {
       // Return a simulated mock intelligence if API key is missing or is placeholder,
       // so the app remains perfectly functional in local dev previews!
       console.log("Using simulated analysis because GEMINI_API_KEY is not configured.");
-      
-      const simulatedResponse = simulateAnalysis(scriptText || "음성 녹음 분석 시뮬레이션", selectedPersonName);
+
+      const simulatedResponse = simulateAnalysis(scriptText, selectedPersonName, todayStr);
       return res.json({
         success: true,
         data: simulatedResponse,
@@ -54,38 +60,19 @@ app.post("/api/analyze-audio", async (req, res) => {
       });
     }
 
-    // Build the request content for Gemini
-    const parts: any[] = [];
-
-    // System instruction or prompt instructions
     const prompt = `
       당신은 친근하고 세심한 개인 비서 '용쨔'입니다.
-      사용자가 지인과의 통화 녹음이나 대화 녹음 파일을 업로드했습니다. 대화 내용을 분석하여 지인에 관한 핵심 요약 및 개인 정보를 정교하게 추출해 주세요.
-      
+      사용자가 지인과 나눈 대화(카톡 대화, 통화 후 한 줄 메모 등)의 텍스트를 입력했습니다. 이 텍스트를 분석하여 지인에 관한 핵심 요약 및 개인 정보를 정교하게 추출해 주세요.
+
       다음 세부 지침을 따라 분석해 주세요:
       1. 대화 속 상대방이 누구인지 분석합니다. (만약 선택된 인물명 '${selectedPersonName || ""}'이 제공되었다면 해당 인물 정보를 기준으로 분석하고, 그렇지 않다면 대화 내용에서 파악합니다.)
       2. 대화 내용의 핵심 줄거리 및 약속, 나눈 이야기 등을 3줄의 간결한 한글 요약으로 만들어 주세요. 각 요약은 독립된 3줄 문장 형태여야 합니다.
-      3. 대화 일자는 대화에서 특별히 언급되지 않는 한 오늘 날짜인 '2026-07-21'로 기록하며, 연락 수단(통화, 카톡, 식사, 대면, 기타)을 문맥에서 파악해 지정해 주세요.
+      3. 대화 일자는 대화에서 특별히 언급되지 않는 한 오늘 날짜인 '${todayStr}'로 기록하며, 연락 수단(통화, 카톡, 식사, 대면, 기타)을 문맥에서 파악해 지정해 주세요.
       4. 대화 중 새롭게 언급된 자녀나 배우자 정보가 있다면 추출해 주세요. (예: '첫째 아들 민우가 초등학교 들어갔어', '우리 딸 주아가 벌써 5살이야' -> name: '민우', ageOrBirth: '초등학교 입학', memo: '새 학교 적응 중' 등)
       5. 대화 중 파악한 상대방의 취미, 좋아하는 식성, 좋아하는 것, 건강 상태, 회사 업무 상태, 약속 메모 등이 있다면 'newMemoInsights' 리스트에 짤막한 요약 메모로 추가해 주세요. (예: '요즘 필라테스 시작했음', '아보카도 샐러드 좋아함', '가을에 제주도 여행 계획 중')
 
-      만약 음성 파일 대신 직접 입력된 텍스트 스크립트('${scriptText || ""}')가 제공된 경우, 이 텍스트를 최우선으로 정교하게 분석하십시오.
+      분석할 대화 텍스트: "${scriptText}"
     `;
-
-    parts.push({ text: prompt });
-
-    if (base64Data && mimeType) {
-      parts.push({
-        inlineData: {
-          mimeType: mimeType, // e.g. "audio/mp3", "audio/wav", "audio/webm", "audio/m4a"
-          data: base64Data
-        }
-      });
-    } else if (scriptText) {
-      parts.push({ text: `대화 스크립트: "${scriptText}"` });
-    } else {
-      return res.status(400).json({ success: false, error: "분석할 오디오 데이터나 텍스트 대화 스크립트가 필요합니다." });
-    }
 
     const responseSchema = {
       type: Type.OBJECT,
@@ -132,7 +119,7 @@ app.post("/api/analyze-audio", async (req, res) => {
 
     const aiResponse = await ai.models.generateContent({
       model: "gemini-3.5-flash",
-      contents: parts,
+      contents: [{ text: prompt }],
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
@@ -168,12 +155,10 @@ app.use("/api", (req, res) => {
 });
 
 // Helper function to simulate analysis when GEMINI_API_KEY is not configured
-function simulateAnalysis(scriptText: string, selectedName?: string) {
+function simulateAnalysis(scriptText: string, selectedName: string | undefined, todayStr: string) {
   const name = selectedName || "김민수";
-  const todayStr = "2026-07-21";
-  
   const textLower = scriptText.toLowerCase();
-  
+
   if (textLower.includes("테니스") || textLower.includes("라켓") || textLower.includes("레슨")) {
     return {
       detectedPersonName: name,
@@ -217,7 +202,6 @@ function simulateAnalysis(scriptText: string, selectedName?: string) {
       ]
     };
   } else {
-    // Default fallback simulation
     return {
       detectedPersonName: name,
       lastContactDate: todayStr,
@@ -253,15 +237,14 @@ async function startServer() {
   }
 
   // Final safety net: guarantee every error response is JSON (never Express's
-  // default HTML error page), especially body-parser's "entity too large"
-  // error when an audio upload exceeds the size limit below.
+  // default HTML error page), e.g. body-parser's "entity too large" error.
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
     console.error("Unhandled server error:", err);
     if (res.headersSent) return next(err);
     const status = err.status || err.statusCode || 500;
     const message =
       err.type === "entity.too.large"
-        ? "업로드한 파일이 너무 큽니다. 더 짧은 녹음 파일로 다시 시도해 주세요."
+        ? "입력한 텍스트가 너무 깁니다. 조금 줄여서 다시 시도해 주세요."
         : err.message || "서버 오류가 발생했습니다.";
     res.status(status).json({ success: false, error: message });
   });
