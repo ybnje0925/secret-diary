@@ -1,10 +1,11 @@
 import { AnimatePresence } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import BottomNavigation, { AppTab } from "./components/navigation/BottomNavigation";
-import QuickRecordSheet from "./components/navigation/QuickRecordSheet";
 import LockScreen from "./components/LockScreen";
+import StoryCaptureSheet, { ApprovedMemoryItem, StorySavePayload } from "./components/person/StoryCaptureSheet";
 import { initialGroups, initialPeople } from "./demoData";
-import { CategoryType, CustomGroup, Person } from "./types";
+import { CategoryType, CustomGroup, EventHistoryItem, InteractionHistory, Person } from "./types";
+import { normalizeMemoryText } from "./utils/saramdam";
 import { saveVault, VaultData } from "./vault";
 import AddPersonView from "./views/AddPersonView";
 import CheckInView from "./views/CheckInView";
@@ -24,7 +25,7 @@ export default function App() {
   const [checkInPersonId, setCheckInPersonId] = useState<string | null>(null);
   const [peopleQuery, setPeopleQuery] = useState("");
   const [peopleCategory, setPeopleCategory] = useState<CategoryType | "전체">("전체");
-  const [isQuickRecordOpen, setIsQuickRecordOpen] = useState(false);
+  const [storyInitialPersonId, setStoryInitialPersonId] = useState<string | null | undefined>(undefined);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [layer, setLayer] = useState<AppLayer>("root");
 
@@ -36,7 +37,7 @@ export default function App() {
     const onPopState = () => {
       historyLayerRef.current = "root";
       setLayer("root");
-      setIsQuickRecordOpen(false);
+      setStoryInitialPersonId(undefined);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -78,12 +79,13 @@ export default function App() {
   };
 
   const handleUnlocked = (key: CryptoKey, data: VaultData) => {
+    const loadedPeople = data.people as Person[];
     setVaultKey(key);
-    setPeople(data.people as Person[]);
+    setPeople(loadedPeople);
     setCustomGroups(data.customGroups);
-    peopleRef.current = data.people as Person[];
+    peopleRef.current = loadedPeople;
     groupsRef.current = data.customGroups;
-    setSelectedPersonId(data.people[0]?.id || null);
+    setSelectedPersonId(loadedPeople[0]?.id || null);
   };
 
   const handleLock = () => {
@@ -115,6 +117,69 @@ export default function App() {
     setSelectedPersonId(person.id);
     setActiveTab("people");
     setEditingPerson(null);
+    closeLayer();
+  };
+
+  const updatePerson = (personId: string, updater: (person: Person) => Person) => {
+    const nextPeople = people.map((person) => (person.id === personId ? updater(person) : person));
+    savePeople(nextPeople);
+  };
+
+  const handleSaveStory = (personId: string, payload: StorySavePayload) => {
+    updatePerson(personId, (person) => applyApprovedStory(person, payload));
+    setSelectedPersonId(personId);
+    setLayer("detail");
+  };
+
+  const handleUpdateHistory = (personId: string, history: InteractionHistory) => {
+    updatePerson(personId, (person) => ({
+      ...person,
+      lastContactDate: person.history[0]?.id === history.id ? history.date : person.lastContactDate,
+      lastContactMedium: person.history[0]?.id === history.id ? history.medium : person.lastContactMedium,
+      history: person.history.map((item) => (item.id === history.id ? history : item))
+    }));
+  };
+
+  const handleDeleteHistory = (personId: string, historyId: string) => {
+    if (!window.confirm("이 이야기 기록을 삭제할까요?")) return;
+    updatePerson(personId, (person) => {
+      const nextHistory = person.history.filter((item) => item.id !== historyId);
+      return {
+        ...person,
+        history: nextHistory,
+        lastContactDate: nextHistory[0]?.date || person.lastContactDate,
+        lastContactMedium: nextHistory[0]?.medium || person.lastContactMedium
+      };
+    });
+  };
+
+  const handleSaveEvent = (personId: string, event: EventHistoryItem) => {
+    updatePerson(personId, (person) => {
+      const exists = person.eventsHistory.some((item) => item.id === event.id);
+      return {
+        ...person,
+        eventsHistory: exists
+          ? person.eventsHistory.map((item) => (item.id === event.id ? event : item))
+          : [event, ...person.eventsHistory]
+      };
+    });
+  };
+
+  const handleDeleteEvent = (personId: string, eventId: string) => {
+    if (!window.confirm("이 함께한 마음 기록을 삭제할까요?")) return;
+    updatePerson(personId, (person) => ({
+      ...person,
+      eventsHistory: person.eventsHistory.filter((item) => item.id !== eventId)
+    }));
+  };
+
+  const handleDeletePerson = (personId: string) => {
+    const person = people.find((item) => item.id === personId);
+    if (!person || !window.confirm(`${person.name}님을 사람담에서 삭제할까요? 저장된 이야기와 함께한 마음 기록도 삭제됩니다.`)) return;
+    const nextPeople = people.filter((item) => item.id !== personId);
+    savePeople(nextPeople);
+    setSelectedPersonId(nextPeople[0]?.id || null);
+    setActiveTab("people");
     closeLayer();
   };
 
@@ -174,7 +239,18 @@ export default function App() {
         ) : (
           <>
             {layer === "detail" && selectedPerson && (
-              <PersonDetailView person={selectedPerson} onBack={closeLayer} onEdit={() => openEditPerson(selectedPerson)} />
+              <PersonDetailView
+                person={selectedPerson}
+                onBack={closeLayer}
+                onEdit={() => openEditPerson(selectedPerson)}
+                onDeletePerson={() => handleDeletePerson(selectedPerson.id)}
+                onStartStory={() => setStoryInitialPersonId(selectedPerson.id)}
+                onStartCheckIn={() => startCheckIn(selectedPerson.id)}
+                onUpdateHistory={(history) => handleUpdateHistory(selectedPerson.id, history)}
+                onDeleteHistory={(historyId) => handleDeleteHistory(selectedPerson.id, historyId)}
+                onSaveEvent={(event) => handleSaveEvent(selectedPerson.id, event)}
+                onDeleteEvent={(eventId) => handleDeleteEvent(selectedPerson.id, eventId)}
+              />
             )}
             {layer === "add" && (
               <AddPersonView person={editingPerson} customGroups={customGroups} onBack={() => { setEditingPerson(null); closeLayer(); }} onSave={handleSavePerson} />
@@ -215,24 +291,81 @@ export default function App() {
             setActiveTab(tab);
             setCheckInPersonId(null);
           }}
-          onQuickRecord={() => setIsQuickRecordOpen(true)}
+          onQuickRecord={() => setStoryInitialPersonId(null)}
         />
       )}
 
       <AnimatePresence>
-        <QuickRecordSheet
-          isOpen={isQuickRecordOpen}
-          onClose={() => setIsQuickRecordOpen(false)}
-          onQuickCapture={() => {
-            setIsQuickRecordOpen(false);
-            window.alert("빠른 기록 저장 화면은 이번 1차 작업에서는 UI 골격만 준비된 mock 상태입니다.");
-          }}
-          onAddPerson={() => {
-            setIsQuickRecordOpen(false);
-            openAddPerson();
-          }}
-        />
+        {storyInitialPersonId !== undefined && (
+          <StoryCaptureSheet
+            people={people}
+            initialPersonId={storyInitialPersonId}
+            onClose={() => setStoryInitialPersonId(undefined)}
+            onSave={(personId, payload) => {
+              handleSaveStory(personId, payload);
+              setStoryInitialPersonId(undefined);
+            }}
+          />
+        )}
       </AnimatePresence>
     </div>
   );
+}
+
+function applyApprovedStory(person: Person, payload: StorySavePayload): Person {
+  const nextNotes = appendUniqueLines(person.preferences.notes, payload.approvedItems.filter((item) => item.category !== "family").map((item) => item.text));
+  const nextChildren = applyFamilyItems(person, payload.approvedItems.filter((item) => item.category === "family"));
+
+  return {
+    ...person,
+    lastContactDate: payload.history.date,
+    lastContactMedium: payload.history.medium,
+    history: [payload.history, ...person.history],
+    familyInfo: {
+      ...person.familyInfo,
+      children: nextChildren
+    },
+    preferences: {
+      ...person.preferences,
+      notes: nextNotes
+    }
+  };
+}
+
+function appendUniqueLines(existing: string, nextLines: string[]) {
+  const existingLines = existing.split("\n").map((line) => line.trim()).filter(Boolean);
+  const existingNormalized = new Set(existingLines.map(normalizeMemoryText));
+  const additions = nextLines
+    .map((line) => line.trim())
+    .filter((line) => line && !existingNormalized.has(normalizeMemoryText(line)));
+
+  return [...existingLines, ...additions].join("\n");
+}
+
+function applyFamilyItems(person: Person, familyItems: ApprovedMemoryItem[]) {
+  const children = [...person.familyInfo.children];
+
+  familyItems.forEach((item) => {
+    const child = item.child;
+    if (!child?.name) return;
+    const existingIndex = children.findIndex((existing) => existing.name.trim() === child.name.trim());
+
+    if (existingIndex >= 0) {
+      const existing = children[existingIndex];
+      const nextMemo = appendUniqueLines(existing.memo, [child.memo || item.text]);
+      children[existingIndex] = {
+        ...existing,
+        ageOrBirth: existing.ageOrBirth || child.ageOrBirth,
+        memo: nextMemo
+      };
+    } else {
+      children.push({
+        name: child.name,
+        ageOrBirth: child.ageOrBirth || "",
+        memo: child.memo || item.text
+      });
+    }
+  });
+
+  return children;
 }

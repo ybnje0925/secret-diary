@@ -46,6 +46,41 @@ button {
   box-shadow: 0 0 0 3px rgba(216, 91, 54, 0.12);
 }
 
+.story-action {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  border-radius: 18px;
+  border: 1px solid #ead8c9;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 16px;
+  text-align: left;
+}
+
+.story-action > svg {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  color: #d85b36;
+}
+
+.story-action b,
+.story-action small {
+  display: block;
+}
+
+.story-action b {
+  color: #2f1b12;
+  font-size: 17px;
+}
+
+.story-action small {
+  margin-top: 4px;
+  color: #7c6252;
+  line-height: 1.5;
+}
+
 .line-clamp-1,
 .line-clamp-2 {
   display: -webkit-box;

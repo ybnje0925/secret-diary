@@ -59,6 +59,8 @@ export interface Person {
   eventsHistory: EventHistoryItem[];
   avatarEmoji: string;
   avatarBg: string;
+  avatarImageDataUrl?: string;
+  avatarPreset?: "man" | "woman" | "neutral" | "plant" | "heart";
   lastContactDate: string;
   lastContactMedium: ContactMedium;
   remindIntervalDays?: number;

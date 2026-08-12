@@ -28,11 +28,11 @@ export function getRecentMemory(person: Person): string {
 
 export function makeMemoryBullets(person: Person): string[] {
   const bullets: string[] = [];
-
   const spouse = person.familyInfo?.spouseName;
   const child = person.familyInfo?.children?.[0];
+
   if (spouse || child) {
-    bullets.push(`가족 ${[spouse && `${spouse}`, child && `${child.name} ${child.ageOrBirth || ""}`].filter(Boolean).join(" · ")}`);
+    bullets.push(`가족 ${[spouse, child && `${child.name} ${child.ageOrBirth || ""}`].filter(Boolean).join(" · ")}`);
   }
   if (person.preferences.hobbies) bullets.push(person.preferences.hobbies);
   if (person.preferences.food) bullets.push(person.preferences.food);
@@ -59,10 +59,12 @@ export function searchPeople(people: Person[], query: string, category: Category
       person.preferences.notes,
       person.familyInfo?.spouseName || "",
       ...(person.familyInfo?.children || []).map((child) => `${child.name} ${child.memo}`)
-    ]
-      .join(" ")
-      .toLowerCase();
+    ].join(" ").toLowerCase();
 
     return haystack.includes(normalized);
   });
+}
+
+export function normalizeMemoryText(value: string) {
+  return value.replace(/\s+/g, "").replace(/[.,!?'"“”]/g, "").toLowerCase();
 }

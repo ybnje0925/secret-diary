@@ -1,26 +1,67 @@
-import { ArrowLeft, CalendarDays, Edit3, MoreHorizontal, Phone, Star } from "lucide-react";
+import { ArrowLeft, CalendarDays, Edit3, HeartHandshake, MoreHorizontal, Phone, Plus, Star, Trash2 } from "lucide-react";
+import { useState } from "react";
 import Avatar from "../components/common/Avatar";
+import EventHistorySection from "../components/person/EventHistorySection";
 import MemorySummaryCard from "../components/person/MemorySummaryCard";
+import PersonInfoSection from "../components/person/PersonInfoSection";
 import PersonTimeline from "../components/person/PersonTimeline";
-import { Person } from "../types";
+import { EventHistoryItem, InteractionHistory, Person } from "../types";
 import { daysSince, getRelationLine } from "../utils/saramdam";
 
 interface Props {
   person: Person;
   onBack: () => void;
   onEdit: () => void;
+  onDeletePerson: () => void;
+  onStartStory: () => void;
+  onStartCheckIn: () => void;
+  onUpdateHistory: (history: InteractionHistory) => void;
+  onDeleteHistory: (historyId: string) => void;
+  onSaveEvent: (event: EventHistoryItem) => void;
+  onDeleteEvent: (eventId: string) => void;
 }
 
-const tabs = ["최근 이야기", "가족", "취향", "경조사", "전체 기록"];
+const tabs = ["최근 이야기", "정보", "함께한 마음", "전체 기록"] as const;
+type DetailTab = typeof tabs[number];
 
-export default function PersonDetailView({ person, onBack, onEdit }: Props) {
+export default function PersonDetailView({
+  person,
+  onBack,
+  onEdit,
+  onDeletePerson,
+  onStartStory,
+  onStartCheckIn,
+  onUpdateHistory,
+  onDeleteHistory,
+  onSaveEvent,
+  onDeleteEvent
+}: Props) {
+  const [activeTab, setActiveTab] = useState<DetailTab>("최근 이야기");
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="space-y-5">
       <header className="flex items-center justify-between">
-        <button onClick={onBack} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
+        <button onClick={onBack} className="rounded-full p-2 text-[#2f1b12]">
+          <ArrowLeft className="h-6 w-6" />
+        </button>
         <div className="flex items-center gap-3">
           <Star className="h-6 w-6 text-[#2f1b12]" />
-          <MoreHorizontal className="h-6 w-6 text-[#2f1b12]" />
+          <div className="relative">
+            <button onClick={() => setMenuOpen((value) => !value)} className="rounded-full p-2 text-[#2f1b12]">
+              <MoreHorizontal className="h-6 w-6" />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 top-11 z-20 w-36 overflow-hidden rounded-2xl border border-[#ead8c9] bg-white shadow-soft">
+                <button onClick={() => { setMenuOpen(false); onEdit(); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-[#2f1b12]">
+                  <Edit3 className="h-4 w-4" /> 사람 정보 수정
+                </button>
+                <button onClick={() => { setMenuOpen(false); onDeletePerson(); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-[#c95735]">
+                  <Trash2 className="h-4 w-4" /> 사람 삭제
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -38,7 +79,9 @@ export default function PersonDetailView({ person, onBack, onEdit }: Props) {
       </section>
 
       <div className="flex items-center justify-between rounded-full bg-[#fff5ed] px-4 py-3 text-sm font-bold text-[#5a392a]">
-        <span className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> 마지막 연락 {daysSince(person.lastContactDate)}일 전 · {person.lastContactMedium}</span>
+        <span className="flex items-center gap-2">
+          <CalendarDays className="h-4 w-4" /> 마지막 연락 {daysSince(person.lastContactDate)}일 전 · {person.lastContactMedium}
+        </span>
         <button onClick={onEdit} className="flex h-10 w-10 items-center justify-center rounded-full border border-[#ead8c9] bg-white text-[#9a6044]">
           <Edit3 className="h-5 w-5" />
         </button>
@@ -46,15 +89,28 @@ export default function PersonDetailView({ person, onBack, onEdit }: Props) {
 
       <MemorySummaryCard person={person} onEdit={onEdit} />
 
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={onStartStory} className="rounded-full bg-[#d85b36] py-4 text-sm font-extrabold text-white shadow-[0_10px_22px_rgba(216,91,54,0.22)]">
+          <Plus className="mr-1 inline h-4 w-4" /> 이야기 담기
+        </button>
+        <button onClick={onStartCheckIn} className="rounded-full border border-[#dfa98f] bg-white py-4 text-sm font-extrabold text-[#c95735]">
+          <HeartHandshake className="mr-1 inline h-4 w-4" /> 안부 시작하기
+        </button>
+      </div>
+
       <div className="flex gap-6 overflow-x-auto border-b border-[#ead8c9]">
-        {tabs.map((tab, index) => (
-          <button key={tab} className={`shrink-0 pb-3 text-sm font-extrabold ${index === 0 ? "border-b-2 border-[#d85b36] text-[#d85b36]" : "text-[#2f1b12]"}`}>
+        {tabs.map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`shrink-0 pb-3 text-sm font-extrabold ${activeTab === tab ? "border-b-2 border-[#d85b36] text-[#d85b36]" : "text-[#2f1b12]"}`}>
             {tab}
           </button>
         ))}
       </div>
 
-      <PersonTimeline person={person} />
+      {(activeTab === "최근 이야기" || activeTab === "전체 기록") && (
+        <PersonTimeline person={person} onUpdateHistory={onUpdateHistory} onDeleteHistory={onDeleteHistory} />
+      )}
+      {activeTab === "정보" && <PersonInfoSection person={person} onEdit={onEdit} />}
+      {activeTab === "함께한 마음" && <EventHistorySection person={person} onSaveEvent={onSaveEvent} onDeleteEvent={onDeleteEvent} />}
     </div>
   );
 }
