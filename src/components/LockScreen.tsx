@@ -1,15 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Lock, Eye, EyeOff, ShieldCheck, AlertTriangle, Upload, KeyRound } from "lucide-react";
-import { motion } from "motion/react";
+import { Delete, Fingerprint, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 import {
-  hasVault,
-  hasLegacyPlaintextData,
-  readLegacyPlaintextData,
   clearLegacyPlaintextData,
   createVault,
+  hasLegacyPlaintextData,
+  hasVault,
+  readLegacyPlaintextData,
   unlockVault,
-  parseBackupFile,
-  decryptBackupPayload,
   VaultData
 } from "../vault";
 
@@ -19,27 +16,10 @@ interface LockScreenProps {
 
 export default function LockScreen({ onUnlocked }: LockScreenProps) {
   const [mode, setMode] = useState<"checking" | "setup" | "unlock">("checking");
-  const [showRestore, setShowRestore] = useState(false);
-
-  // Setup fields
-  const [newPin, setNewPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
-
-  // Unlock fields
   const [pin, setPin] = useState("");
-
-  // Restore-from-backup fields
-  const [restoreFile, setRestoreFile] = useState<File | null>(null);
-  const [restoreParsed, setRestoreParsed] = useState<
-    { format: "plain"; data: VaultData } | { format: "encrypted"; salt: string; payload: string } | null
-  >(null);
-  const [backupPin, setBackupPin] = useState("");
-  const [restoredData, setRestoredData] = useState<VaultData | null>(null);
-
-  const [showPin, setShowPin] = useState(false);
+  const [confirmPin, setConfirmPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMode(hasVault() ? "unlock" : "setup");
@@ -47,309 +27,119 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
 
   const legacyExists = hasLegacyPlaintextData();
 
-  const handleUnlock = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (nextPin = pin) => {
+    if (isSubmitting || mode === "checking") return;
     setError(null);
     setIsSubmitting(true);
     try {
-      const { key, data } = await unlockVault(pin);
-      onUnlocked(key, data);
-    } catch (err) {
-      setError("비밀번호가 일치하지 않습니다. 다시 시도해 주세요.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSetup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (newPin.length < 4) {
-      setError("비밀번호는 4자리 이상으로 설정해 주세요.");
-      return;
-    }
-    if (newPin !== confirmPin) {
-      setError("비밀번호가 서로 일치하지 않습니다.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const initialData: VaultData = restoredData
-        ? restoredData
-        : legacyExists
-        ? readLegacyPlaintextData()
-        : { people: [], customGroups: [] };
-
-      const key = await createVault(newPin, initialData);
-      clearLegacyPlaintextData();
-      onUnlocked(key, initialData);
-    } catch (err) {
-      setError("비밀번호 설정 중 오류가 발생했습니다. 다시 시도해 주세요.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleRestoreFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError(null);
-    setRestoreFile(file);
-    setRestoredData(null);
-    setRestoreParsed(null);
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const parsed = parseBackupFile(event.target?.result as string);
-        setRestoreParsed(parsed);
-        if (parsed.format === "plain") {
-          setRestoredData(parsed.data);
-        }
-      } catch (err) {
-        setError("백업 파일을 읽을 수 없습니다. 파일이 올바른지 확인해 주세요.");
+      if (mode === "unlock") {
+        const { key, data } = await unlockVault(nextPin);
+        onUnlocked(key, data);
+      } else {
+        if (nextPin.length < 4) throw new Error("PIN은 4자리 이상으로 설정해주세요.");
+        if (nextPin !== confirmPin) throw new Error("PIN 확인이 일치하지 않습니다.");
+        const initialData = legacyExists ? readLegacyPlaintextData() : { people: [], customGroups: [] };
+        const key = await createVault(nextPin, initialData);
+        clearLegacyPlaintextData();
+        onUnlocked(key, initialData);
       }
-    };
-    reader.readAsText(file);
-  };
-
-  const handleDecryptBackup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!restoreParsed || restoreParsed.format !== "encrypted") return;
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      const data = await decryptBackupPayload(backupPin, restoreParsed.salt, restoreParsed.payload);
-      setRestoredData(data);
-    } catch (err) {
-      setError("백업 파일의 비밀번호가 일치하지 않습니다.");
+    } catch (err: any) {
+      setError(err.message || "PIN을 확인하고 다시 시도해주세요.");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const addDigit = (digit: string) => {
+    if (mode === "setup" && pin.length >= 4 && confirmPin.length < 4) {
+      setConfirmPin((value) => value + digit);
+      return;
+    }
+    if (pin.length < 8) setPin((value) => value + digit);
+  };
+
+  const erase = () => {
+    if (mode === "setup" && confirmPin.length > 0) {
+      setConfirmPin((value) => value.slice(0, -1));
+      return;
+    }
+    setPin((value) => value.slice(0, -1));
   };
 
   if (mode === "checking") {
-    return <div className="min-h-screen bg-slate-50" />;
+    return <div className="min-h-screen bg-[#fff8ef]" />;
   }
 
+  const activeDots = mode === "setup" && pin.length >= 4 ? confirmPin.length : pin.length;
+  const helper = mode === "unlock" ? "PIN을 눌러 잠금을 해제해주세요." : pin.length < 4 ? "새 PIN을 입력해주세요." : "확인을 위해 한 번 더 입력해주세요.";
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-5">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden"
-      >
-        <div className="p-7 space-y-5">
-          <div className="flex flex-col items-center text-center gap-2">
-            <div className="w-14 h-14 bg-slate-900 text-white rounded-xl flex items-center justify-center">
-              <Lock className="w-6 h-6" />
-            </div>
-            <h1 className="text-lg font-bold text-slate-900">용쨔의 비밀노트</h1>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              {mode === "unlock"
-                ? "비밀번호를 입력해 잠금을 해제해 주세요."
-                : "이 기기에서만 사용할 비밀번호를 설정하면\n지인 정보가 이 기기 안에서 암호화되어 보관됩니다."}
-            </p>
+    <main className="flex min-h-screen items-center justify-center bg-[#fff8ef] px-7 py-8 text-[#2f1b12]">
+      <section className="flex min-h-[760px] w-full max-w-md flex-col items-center rounded-[34px] border border-[#ead8c9] bg-[#fffaf3] px-9 py-8 shadow-[0_18px_45px_rgba(91,62,43,0.16)]">
+        <div className="mb-10 flex w-full items-center justify-between text-sm font-bold">
+          <span>9:41</span>
+          <span>●●●</span>
+        </div>
+
+        <div className="mt-10 flex flex-1 flex-col items-center text-center">
+          <div className="relative mb-6 h-16 w-20">
+            <span className="absolute left-2 top-2 h-11 w-14 rounded-2xl bg-[#e78f70]" />
+            <span className="absolute right-1 top-6 h-11 w-14 rounded-2xl bg-[#f1b69d]" />
+            <span className="absolute left-6 top-4 text-2xl">🧡</span>
           </div>
 
-          {mode === "unlock" && (
-            <form onSubmit={handleUnlock} className="space-y-3">
-              <div className="relative">
-                <input
-                  id="unlock-pin-input"
-                  type={showPin ? "text" : "password"}
-                  inputMode="numeric"
-                  autoFocus
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value)}
-                  placeholder="비밀번호(PIN) 입력"
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-10 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                >
-                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+          <h1 className="text-4xl font-black">사람담</h1>
+          <p className="mt-5 whitespace-pre-line text-base leading-relaxed text-[#5e473a]">
+            소중한 사람들의 이야기를{"\n"}안전하게 담아두세요.
+          </p>
+
+          <p className="mt-8 text-sm font-semibold text-[#8d5b45]">{helper}</p>
+          <div className="mt-5 flex gap-5">
+            {[0, 1, 2, 3].map((index) => (
+              <span key={index} className={`h-4 w-4 rounded-full border border-[#cdb7a7] ${activeDots > index ? "bg-[#d85b36]" : "bg-white"}`} />
+            ))}
+          </div>
+
+          {error && <p className="mt-4 rounded-full bg-[#fff1e8] px-4 py-2 text-sm font-bold text-[#c95735]">{error}</p>}
+
+          <div className="mt-12 grid w-full grid-cols-3 gap-x-9 gap-y-5">
+            {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
+              <div key={digit}>
+                <KeyButton digit={digit} onClick={() => addDigit(digit)} />
               </div>
+            ))}
+            <button type="button" className="flex h-16 w-16 items-center justify-center rounded-full border border-[#ead8c9] bg-[#fffaf3] text-[#8f7564]">
+              <Fingerprint className="h-8 w-8" />
+            </button>
+            <KeyButton digit="0" onClick={() => addDigit("0")} />
+            <button type="button" onClick={erase} className="flex h-16 w-16 items-center justify-center rounded-full text-[#2f1b12]">
+              <Delete className="h-8 w-8" />
+            </button>
+          </div>
 
-              {error && (
-                <p className="text-xs text-rose-600 font-medium flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {error}
-                </p>
-              )}
-
-              <button
-                id="unlock-submit-btn"
-                type="submit"
-                disabled={isSubmitting || !pin}
-                className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2"
-              >
-                <ShieldCheck className="w-4 h-4" /> 잠금 해제
-              </button>
-
-              <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-                비밀번호는 서버에 저장되지 않으며, 잊어버리면 기기에 저장된 데이터는 복구할 수 없습니다.
-              </p>
-            </form>
-          )}
-
-          {mode === "setup" && !showRestore && (
-            <form onSubmit={handleSetup} className="space-y-3">
-              {legacyExists && (
-                <p className="text-[11px] bg-blue-50 text-blue-700 border border-blue-200 rounded-xl p-2.5 leading-relaxed">
-                  기존에 저장돼 있던 지인 데이터를 이 비밀번호로 암호화해서 그대로 옮겨드릴게요.
-                </p>
-              )}
-              {restoredData && (
-                <p className="text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl p-2.5 leading-relaxed">
-                  백업 파일에서 {restoredData.people.length}명의 지인 데이터를 불러왔습니다. 이제 이 기기에서 쓸 새 비밀번호를 설정해 주세요.
-                </p>
-              )}
-
-              <div className="relative">
-                <input
-                  id="new-pin-input"
-                  type={showPin ? "text" : "password"}
-                  inputMode="numeric"
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
-                  placeholder="새 비밀번호 (4자리 이상)"
-                  className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-10 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
-                >
-                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-
-              <input
-                id="confirm-pin-input"
-                type={showPin ? "text" : "password"}
-                inputMode="numeric"
-                value={confirmPin}
-                onChange={(e) => setConfirmPin(e.target.value)}
-                placeholder="비밀번호 확인"
-                className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600"
-              />
-
-              {error && (
-                <p className="text-xs text-rose-600 font-medium flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {error}
-                </p>
-              )}
-
-              <button
-                id="setup-submit-btn"
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 bg-teal-700 hover:bg-teal-800 disabled:opacity-40 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2"
-              >
-                <Lock className="w-4 h-4" /> 비밀번호 설정하고 시작하기
-              </button>
-
-              {!restoredData && (
-                <button
-                  type="button"
-                  id="show-restore-btn"
-                  onClick={() => setShowRestore(true)}
-                  className="w-full py-2.5 text-slate-500 hover:text-slate-700 font-bold text-xs flex items-center justify-center gap-1.5"
-                >
-                  <Upload className="w-3.5 h-3.5" /> 다른 기기의 백업 파일에서 복원하기
-                </button>
-              )}
-
-              <p className="text-[10px] text-slate-400 text-center leading-relaxed">
-                이 비밀번호를 잊으면 기기에 저장된 데이터를 복구할 방법이 없습니다.
-              </p>
-            </form>
-          )}
-
-          {mode === "setup" && showRestore && (
-            <div className="space-y-3">
-              {!restoreFile && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-6 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs font-bold flex flex-col items-center gap-2 hover:border-teal-600/40 hover:text-teal-700 transition-all"
-                >
-                  <Upload className="w-5 h-5" />
-                  백업 파일(.json) 선택하기
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".json"
-                onChange={handleRestoreFile}
-                className="hidden"
-              />
-
-              {restoreFile && !restoredData && (
-                <p className="text-[11px] text-slate-500 bg-slate-50 rounded-xl p-2.5 truncate">{restoreFile.name}</p>
-              )}
-
-              {restoreParsed?.format === "encrypted" && !restoredData && (
-                <form onSubmit={handleDecryptBackup} className="space-y-2">
-                  <div className="relative">
-                    <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type={showPin ? "text" : "password"}
-                      value={backupPin}
-                      onChange={(e) => setBackupPin(e.target.value)}
-                      placeholder="이 백업 파일의 비밀번호"
-                      className="w-full text-sm bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-600"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || !backupPin}
-                    className="w-full py-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold rounded-xl text-xs transition-all"
-                  >
-                    백업 파일 잠금 해제
-                  </button>
-                </form>
-              )}
-
-              {restoredData && (
-                <button
-                  type="button"
-                  onClick={() => setShowRestore(false)}
-                  className="w-full py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold rounded-xl text-xs"
-                >
-                  복원 완료 — 새 비밀번호 설정하러 가기
-                </button>
-              )}
-
-              {error && (
-                <p className="text-xs text-rose-600 font-medium flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {error}
-                </p>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowRestore(false);
-                  setRestoreFile(null);
-                  setRestoreParsed(null);
-                  setRestoredData(null);
-                  setError(null);
-                }}
-                className="w-full py-2 text-slate-400 hover:text-slate-700 text-xs font-bold"
-              >
-                취소하고 돌아가기
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => submit()}
+            disabled={isSubmitting || (mode === "unlock" ? pin.length < 4 : confirmPin.length < 4)}
+            className="mt-8 w-full rounded-full bg-[#d85b36] py-4 text-base font-extrabold text-white disabled:opacity-40"
+          >
+            {mode === "unlock" ? "잠금 해제" : "PIN 설정하고 시작하기"}
+          </button>
         </div>
-      </motion.div>
-    </div>
+
+        <p className="flex items-center gap-2 text-xs font-semibold text-[#7c6252]">
+          <ShieldCheck className="h-4 w-4" /> 기록은 암호화되어 안전하게 보관됩니다.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function KeyButton({ digit, onClick }: { digit: string; onClick: () => void }) {
+  const letters: Record<string, string> = { "2": "ABC", "3": "DEF", "4": "GHI", "5": "JKL", "6": "MNO", "7": "PQRS", "8": "TUV", "9": "WXYZ" };
+  return (
+    <button type="button" onClick={onClick} className="flex h-16 w-16 flex-col items-center justify-center rounded-full border border-[#ead8c9] bg-[#fffaf3] text-3xl font-medium text-[#2f1b12]">
+      <span>{digit}</span>
+      {letters[digit] && <span className="text-[10px] font-bold tracking-widest">{letters[digit]}</span>}
+    </button>
   );
 }

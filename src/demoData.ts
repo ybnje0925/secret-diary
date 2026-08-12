@@ -1,154 +1,144 @@
-import { Person, CustomGroup } from "./types";
+import { CustomGroup, Person } from "./types";
 
 export const initialGroups: CustomGroup[] = [
-  { id: "g1", name: "고등학교 동창" },
-  { id: "g2", name: "테니스 동호회" },
-  { id: "g3", name: "육아 동지회" },
-  { id: "g4", name: "대학 마케팅 학회" },
-  { id: "g5", name: "VIP 클라이언트" },
+  { id: "g1", name: "테니스 모임" },
+  { id: "g2", name: "회사 동료" },
+  { id: "g3", name: "대학 동기" },
+  { id: "g4", name: "축구 동호회" },
+  { id: "g5", name: "가족 모임" }
 ];
 
 export const initialPeople: Person[] = [
   {
     id: "p1",
-    name: "김용우",
+    name: "김민수",
     phone: "010-4321-9876",
-    company: "스마트에듀텍 대표",
-    category: "지인",
-    groups: ["테니스 동호회", "대학 마케팅 학회"],
+    company: "",
+    category: "친구",
+    groups: ["테니스 모임"],
     familyInfo: {
-      spouseName: "이지아",
-      children: [
-        { name: "김하진", birthDate: "2018-03-11", ageOrBirth: "", memo: "초등학교 입학, 테니스 라켓에 관심 보임" },
-        { name: "김하린", birthDate: "2021-09-02", ageOrBirth: "", memo: "유치원 적응 완료, 뽀로로보다 블록놀이를 선호함" }
-      ]
+      spouseName: "지현",
+      children: [{ name: "민지", birthDate: "2017-03-11", ageOrBirth: "", memo: "요즘 축구와 테니스에 관심이 많음" }]
     },
     preferences: {
-      food: "드립커피 애호가, 단 음식은 싫어함, 삼겹살 매우 좋아함",
-      hobbies: "테니스 구력 5년, 백핸드가 강력함",
-      notes: "최근 사업 확장으로 바쁜 상태"
+      food: "삼겹살을 좋아함",
+      hobbies: "테니스, 새로운 카페 찾기",
+      notes: "최근 테니스 엘보 때문에 운동을 쉬는 중. 다음 달 복식대회 같이 나가기로 함."
     },
     eventsHistory: [
-      { id: "e1_1", date: "2025-05-10", type: "축의금", amountOrGift: "10만원", note: "지인 결혼식 축의금" }
+      { id: "e1_1", date: "2026-08-28", type: "기념일", amountOrGift: "민지 생일", note: "작은 선물 챙기기" }
     ],
-    avatarEmoji: "🎾",
-    avatarBg: "bg-emerald-100 text-emerald-800",
-    lastContactDate: "2026-07-15",
+    avatarEmoji: "🙂",
+    avatarBg: "bg-[#f3dfd1]",
+    lastContactDate: "2026-06-01",
     lastContactMedium: "식사",
     remindIntervalDays: 60,
     history: [
       {
         id: "h1_1",
-        date: "2026-07-15",
+        date: "2026-07-21",
         medium: "식사",
-        summary: "1. 서브 전술에 대해 의견을 나눴으며 복식 파트너로 가을 대회 참가를 긍정 검토 중임.\n2. 자녀 하진이가 초등학교에 입학했는데 학교 방과후 체육수업을 매우 좋아한다고 전함.\n3. 스마트에듀텍 최근 교육용 모바일 플랫폼 투자 라운드가 순조롭게 진행 중이라고 함."
+        summary: "테니스 엘보 때문에 요즘 운동을 쉬는 중. 다음 달 복식대회 같이 참가하기로 함.",
+        rawTranscript: "요즘 팔꿈치가 안 좋아서 테니스를 조금 쉬고 있어. 다음 달 복식대회는 같이 나가자."
       },
       {
         id: "h1_2",
         date: "2026-06-10",
-        medium: "통화",
-        summary: "1. 안부 전화 중 최근 손목 통증으로 테니스 레슨을 2주간 쉬었다고 토로함.\n2. 커피 기프티콘을 보내줘서 잘 먹었다고 감사 인사를 받음.\n3. 아내 지아님의 생일 선물을 고르는 팁을 물어보아 꽃과 편지를 추천해 줌."
+        medium: "카톡",
+        summary: "요즘 핸드드립 커피에 빠졌다고 이야기함. 괜찮은 새 카페를 찾고 있다고 함."
       }
     ]
   },
   {
     id: "p2",
-    name: "이지연",
+    name: "박지현",
     phone: "010-8888-2222",
-    company: "프리랜서 디자이너",
+    company: "브랜드팀",
     category: "친구",
-    groups: ["고등학교 동창", "육아 동지회"],
-    familyInfo: {
-      spouseName: "민지훈",
-      children: [
-        { name: "민우진", birthDate: "2020-05-20", ageOrBirth: "", memo: "영어유치원 블루반 재원 중, 자동차 장난감을 극도로 좋아함" }
-      ]
-    },
+    groups: ["회사 동료"],
+    familyInfo: { children: [] },
     preferences: {
-      food: "우유 알레르기 — 카페/식사 시 락토프리 또는 오트 밀크 필수",
-      hobbies: "빈티지 소품 수집",
-      notes: "고등학교 시절 미술반 동창, 디자인 안목이 세련됨"
+      food: "샐러드와 가벼운 브런치",
+      hobbies: "전시 보기, 산책",
+      notes: "새 부서로 이동해서 정신없다고 했음."
     },
     eventsHistory: [],
-    avatarEmoji: "🎨",
-    avatarBg: "bg-orange-100 text-orange-800",
-    lastContactDate: "2026-07-19",
-    lastContactMedium: "통화",
+    avatarEmoji: "🙂",
+    avatarBg: "bg-[#f6e2d9]",
+    lastContactDate: "2026-07-22",
+    lastContactMedium: "카톡",
     remindIntervalDays: 30,
     history: [
-      {
-        id: "h2_1",
-        date: "2026-07-19",
-        medium: "통화",
-        summary: "1. 프리랜서 계약 건 관련 상표권 디자인 검토를 조율하고 가벼운 수다를 떨었음.\n2. 아들 우진이가 영유 레벨테스트를 무난히 통과해서 안심했다고 함.\n3. 최근 성수에 새로 오픈한 에스프레소 바에 꼭 같이 가자고 버킷리스트를 작성함."
-      }
+      { id: "h2_1", date: "2026-07-22", medium: "카톡", summary: "새 부서로 이동해서 정신없다고 했음. 적응하면 점심을 먹기로 함." }
     ]
   },
   {
     id: "p3",
-    name: "박철진 부장",
+    name: "이영훈",
     phone: "010-5555-7777",
-    company: "한국테크솔루션 구매팀",
-    category: "회사-업무",
-    groups: ["VIP 클라이언트"],
-    familyInfo: {
-      spouseName: "임수경",
-      children: []
-    },
+    company: "캠핑 모임",
+    category: "친구",
+    groups: ["캠핑 모임"],
+    familyInfo: { spouseName: "수연", children: [] },
     preferences: {
-      food: "드라이한 레드 와인, 막걸리도 좋아함, 서울 중구 노포 맛집에 정통함",
-      hobbies: "골프 애호가, 주말마다 필드에 나감",
-      notes: "비즈니스 미팅 시 날씨/건강 안부로 분위기를 띄우면 부드러워짐"
+      food: "고기구이, 막걸리",
+      hobbies: "캠핑, 장비 구경",
+      notes: "아내가 임신 5개월이라고 했음."
     },
-    eventsHistory: [
-      { id: "e3_1", date: "2025-09-20", type: "선물", amountOrGift: "명절 한과 세트", note: "추석 선물 발송" }
-    ],
-    avatarEmoji: "👔",
-    avatarBg: "bg-blue-100 text-blue-800",
-    lastContactDate: "2026-07-10",
-    lastContactMedium: "대면",
-    remindIntervalDays: 90,
+    eventsHistory: [{ id: "e3_1", date: "2026-08-20", type: "기념일", amountOrGift: "수연 생일", note: "작은 꽃다발" }],
+    avatarEmoji: "🙂",
+    avatarBg: "bg-[#eadccf]",
+    lastContactDate: "2026-07-29",
+    lastContactMedium: "통화",
+    remindIntervalDays: 30,
     history: [
-      {
-        id: "h3_1",
-        date: "2026-07-10",
-        medium: "대면",
-        summary: "1. 하반기 부품 조달 계획 및 견적 조율을 위한 정식 미팅을 마침.\n2. 최근 장마철 골프 필드 라운딩을 가셨다가 폭우를 맞았던 유쾌한 이야기를 나눔.\n3. 아내 수경님과 함께 드실 강릉 산지 한과 세트를 명절 선물용으로 예약 발송하기로 결정함."
-      }
+      { id: "h3_1", date: "2026-07-29", medium: "통화", summary: "아내가 임신 5개월이라고 했음. 이번 주말에 캠핑 가기로 했음." }
     ]
   },
   {
     id: "p4",
-    name: "한예슬",
+    name: "최수진",
     phone: "010-1234-5678",
-    company: "우리병원 소아과 간호사",
-    category: "가족",
-    groups: ["육아 동지회"],
-    familyInfo: {
-      spouseName: "나영진",
-      children: [
-        { name: "나소희", birthDate: "2022-02-14", ageOrBirth: "", memo: "동네 어린이집 햇살반, 딸기라면 자다가도 깸" },
-        { name: "나정우", birthDate: "2024-06-01", ageOrBirth: "", memo: "걸음마를 최근 떼서 집안 온 군데를 헤집고 다님" }
-      ]
-    },
+    company: "대학 동기",
+    category: "지인",
+    groups: ["대학 동기"],
+    familyInfo: { children: [] },
     preferences: {
-      food: "오렌지 향 디퓨저 선물을 아주 기쁘게 받았던 이력이 있음",
-      hobbies: "아로마 테라피, 밤하늘 별 보며 드라이브하기",
-      notes: "사촌 동생, 직장이 소아과라 자녀 건강 관련 조언을 많이 얻음"
+      food: "라떼, 디저트",
+      hobbies: "강아지와 산책",
+      notes: "강아지 쿠키와 함께 산책 중이라고 했음."
     },
     eventsHistory: [],
-    avatarEmoji: "🌸",
-    avatarBg: "bg-pink-100 text-pink-800",
-    lastContactDate: "2026-07-20",
-    lastContactMedium: "카톡",
-    remindIntervalDays: 30,
+    avatarEmoji: "🙂",
+    avatarBg: "bg-[#f1e5d8]",
+    lastContactDate: "2026-03-11",
+    lastContactMedium: "메시지",
+    remindIntervalDays: 90,
     history: [
-      {
-        id: "h4_1",
-        date: "2026-07-20",
-        medium: "카톡",
-        summary: "1. 소희가 최근 여름 감기에 걸려서 열이 안 떨어진다고 육아 고충을 토로함.\n2. 병원 리모델링 때문에 간호 부서 교대 근무 조율이 타이트해져 피로를 호소함.\n3. 주말에 우리 집에 아이들과 놀러 오겠다고 약속을 선점해 둠."
-      }
+      { id: "h4_1", date: "2026-03-11", medium: "메시지", summary: "강아지 쿠키와 함께 산책 중이라고 했음. 날씨가 좋아 자주 걷는다고 함." }
+    ]
+  },
+  {
+    id: "p5",
+    name: "정우성",
+    phone: "010-7777-1111",
+    company: "축구 동호회",
+    category: "친구",
+    groups: ["축구 동호회"],
+    familyInfo: { children: [] },
+    preferences: {
+      food: "국밥, 매운 음식",
+      hobbies: "축구, 캠핑",
+      notes: "이번 주말에 캠핑 가기로 했음."
+    },
+    eventsHistory: [],
+    avatarEmoji: "🙂",
+    avatarBg: "bg-[#efd8c8]",
+    lastContactDate: "2026-01-14",
+    lastContactMedium: "대면",
+    remindIntervalDays: 90,
+    history: [
+      { id: "h5_1", date: "2026-01-14", medium: "대면", summary: "이번 주말에 캠핑 가기로 했음. 새 텐트를 샀다고 이야기함." }
     ]
   }
 ];

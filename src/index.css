@@ -1,28 +1,76 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* 돋움체 계열 고딕 폰트를 메인 글씨체로 사용 */
-  --font-sans: 'Noto Sans KR', 'Malgun Gothic', '돋움', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-sans: 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
+  margin: 0;
+  min-width: 320px;
+  background: #fff8ef;
   font-family: var(--font-sans);
 }
 
-/* Custom scrollbar */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.shadow-soft {
+  box-shadow: 0 8px 24px rgba(91, 62, 43, 0.08);
+}
+
+.saram-input {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid #ead8c9;
+  background: #fffdfa;
+  padding: 13px 14px;
+  color: #2f1b12;
+  outline: none;
+}
+
+.saram-input:focus {
+  border-color: #d85b36;
+  box-shadow: 0 0 0 3px rgba(216, 91, 54, 0.12);
+}
+
+.line-clamp-1,
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-1 {
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  -webkit-line-clamp: 2;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #f8fafc;
+  background: #fff8ef;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #d8bca9;
+  border-radius: 999px;
 }
