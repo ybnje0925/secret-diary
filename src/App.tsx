@@ -36,9 +36,28 @@ export default function App() {
   const peopleRef = useRef<Person[]>([]);
   const groupsRef = useRef<CustomGroup[]>([]);
   const historyLayerRef = useRef<AppLayer>("root");
+  const backPressedAtRef = useRef(0);
+  const touchStartXRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!vaultKey) return;
+    window.history.replaceState({ layer: "root" }, "");
+    window.history.pushState({ layer: "root", guard: true }, "");
+  }, [vaultKey]);
 
   useEffect(() => {
     const onPopState = () => {
+      if (historyLayerRef.current === "root") {
+        const now = Date.now();
+        if (now - backPressedAtRef.current < 2000) {
+          return;
+        }
+        backPressedAtRef.current = now;
+        setToast("뒤로 한 번 더 누르면 종료됩니다.");
+        window.setTimeout(() => setToast(""), 1800);
+        window.history.pushState({ layer: "root", guard: true }, "");
+        return;
+      }
       historyLayerRef.current = "root";
       setLayer("root");
       setStoryInitialPersonId(undefined);
@@ -270,6 +289,17 @@ export default function App() {
     setLayer("root");
   };
 
+  const changeTabBySwipe = (deltaX: number) => {
+    if (layer !== "root" || storyInitialPersonId !== undefined || Math.abs(deltaX) < 70) return;
+    const tabs: AppTab[] = ["home", "people", "checkin", "settings"];
+    const currentIndex = tabs.indexOf(activeTab);
+    const nextIndex = deltaX > 0 ? currentIndex + 1 : currentIndex - 1;
+    const nextTab = tabs[nextIndex];
+    if (!nextTab) return;
+    setActiveTab(nextTab);
+    setCheckInPersonId(null);
+  };
+
   if (!vaultKey) {
     return <LockScreen onUnlocked={handleUnlocked} />;
   }
@@ -277,7 +307,15 @@ export default function App() {
   const selectedPerson = people.find((person) => person.id === selectedPersonId) || null;
 
   return (
-    <div className="min-h-screen bg-[#fff8ef] text-[#2f1b12]">
+    <div
+      className="min-h-screen bg-[#fff8ef] text-[#2f1b12]"
+      onTouchStart={(event) => { touchStartXRef.current = event.touches[0].clientX; }}
+      onTouchEnd={(event) => {
+        if (touchStartXRef.current === null) return;
+        changeTabBySwipe(event.changedTouches[0].clientX - touchStartXRef.current);
+        touchStartXRef.current = null;
+      }}
+    >
       <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-28 pt-7 md:max-w-3xl lg:max-w-5xl">
         {people.length === 0 && layer === "root" ? (
           <div className="flex min-h-[70vh] flex-col justify-center space-y-5 text-center">

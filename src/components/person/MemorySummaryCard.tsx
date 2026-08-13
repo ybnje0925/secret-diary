@@ -7,7 +7,9 @@ interface Props {
   onEdit: () => void;
 }
 
-const icons = ["👨‍👩‍👧", "🎾", "🥩", "❤️"];
+function getMemoryIcon(text: string) {
+  return /가족|배우자|아내|남편|딸|아들|자녀|아이/.test(text) ? "👨‍👩‍👧" : "🌿";
+}
 
 export default function MemorySummaryCard({ person, onEdit }: Props) {
   const bullets = makeMemoryBullets(person);
@@ -23,7 +25,7 @@ export default function MemorySummaryCard({ person, onEdit }: Props) {
       <div className="space-y-3">
         {bullets.length > 0 ? bullets.map((bullet, index) => (
           <p key={`${bullet}-${index}`} className="flex gap-2 text-[15px] leading-relaxed text-[#2f1b12]">
-            <span>{icons[index] || "🌿"}</span>
+            <span className="shrink-0">{getMemoryIcon(bullet)}</span>
             <span>{bullet}</span>
           </p>
         )) : (

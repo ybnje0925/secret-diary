@@ -42,6 +42,7 @@ export default function ConversationStarter({
   const [toast, setToast] = useState("");
   const [showComplete, setShowComplete] = useState(false);
   const [medium, setMedium] = useState<ContactMedium>("카톡");
+  const showError = Boolean(error && !starters && !isLoading);
 
   const copyText = (text: string) => {
     navigator.clipboard?.writeText(text).catch(() => undefined);
@@ -81,7 +82,7 @@ export default function ConversationStarter({
         </div>
       )}
 
-      {error && (
+      {showError && (
         <div className="rounded-2xl border border-[#ead8c9] bg-[#fff1e8] p-4">
           <p className="font-bold text-[#c95735]">문구를 불러오는 데 잠시 문제가 생겼어요.</p>
           <button onClick={() => onRegenerate("casual")} className="mt-3 rounded-full bg-white px-4 py-2 text-sm font-extrabold text-[#c95735]">다시 시도</button>

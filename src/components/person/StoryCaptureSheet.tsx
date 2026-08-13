@@ -155,7 +155,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
-      <section onClick={(event) => event.stopPropagation()} className="mb-3 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-[#fffaf3] p-5 shadow-[0_20px_60px_rgba(47,27,18,0.25)]">
+      <section onClick={(event) => event.stopPropagation()} className="mb-3 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-[#fffaf3] p-5 pb-8 shadow-[0_20px_60px_rgba(47,27,18,0.25)]">
         <div className="mx-auto mb-4 h-1 w-16 rounded-full bg-[#cdb7a7]" />
         <div className="mb-5 flex items-start justify-between">
           <div>
@@ -172,9 +172,9 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
             <p className="text-sm leading-relaxed text-[#7c6252]">먼저 누구의 이야기인지 선택해주세요.</p>
             <label className="relative block">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8f7564]" />
-              <input value={personQuery} onChange={(event) => setPersonQuery(event.target.value)} placeholder="이름, 관계, 그룹, 관심사 검색" className="saram-input h-12 pl-12 text-sm" />
+              <input value={personQuery} onChange={(event) => setPersonQuery(event.target.value)} placeholder="이름, 관계, 그룹, 관심사 검색" className="saram-input h-14 pl-12 pr-4 text-sm" />
             </label>
-            <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1">
+            <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
               {filteredPeople.map((item) => (
                 <button key={item.id} onClick={() => { setSelectedPersonId(item.id); setStep("method"); }} className="flex w-full items-center gap-3 rounded-2xl border border-[#ead8c9] bg-white/70 p-3 text-left">
                   <Avatar person={item} size="sm" />
@@ -297,7 +297,7 @@ function MethodButton({ icon, title, desc, onClick }: { icon: ReactNode; title: 
 
 function RecordBasics({ date, medium, onDateChange, onMediumChange }: { date: string; medium: ContactMedium; onDateChange: (value: string) => void; onMediumChange: (value: ContactMedium) => void }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-3">
       <label className="min-w-0">
         <span className="mb-1 block text-xs font-extrabold text-[#5a392a]">날짜</span>
         <input type="date" value={date} onChange={(event) => onDateChange(event.target.value)} className="saram-input w-full min-w-0 py-3 text-sm" />
