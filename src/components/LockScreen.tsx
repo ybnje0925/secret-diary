@@ -27,7 +27,7 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
 
   const legacyExists = hasLegacyPlaintextData();
 
-  const submit = async (nextPin = pin) => {
+  const submit = async (nextPin = pin, nextConfirmPin = confirmPin) => {
     if (isSubmitting || mode === "checking") return;
     setError(null);
     setIsSubmitting(true);
@@ -37,7 +37,7 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
         onUnlocked(key, data);
       } else {
         if (nextPin.length < 4) throw new Error("PIN은 4자리 이상으로 설정해주세요.");
-        if (nextPin !== confirmPin) throw new Error("PIN 확인이 일치하지 않습니다.");
+        if (nextPin !== nextConfirmPin) throw new Error("PIN 확인이 일치하지 않습니다.");
         const initialData = legacyExists ? readLegacyPlaintextData() : { people: [], customGroups: [] };
         const key = await createVault(nextPin, initialData);
         clearLegacyPlaintextData();
@@ -45,20 +45,33 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
       }
     } catch (err: any) {
       setError(err.message || "PIN을 확인하고 다시 시도해주세요.");
+      setPin("");
+      setConfirmPin("");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const addDigit = (digit: string) => {
-    if (mode === "setup" && pin.length >= 4 && confirmPin.length < 4) {
-      setConfirmPin((value) => value + digit);
+    if (isSubmitting) return;
+    if (mode === "unlock") {
+      const next = (pin + digit).slice(0, 4);
+      setPin(next);
+      if (next.length === 4) window.setTimeout(() => submit(next), 80);
       return;
     }
-    if (pin.length < 8) setPin((value) => value + digit);
+
+    if (pin.length >= 4 && confirmPin.length < 4) {
+      const nextConfirm = confirmPin + digit;
+      setConfirmPin(nextConfirm);
+      if (nextConfirm.length === 4) window.setTimeout(() => submit(pin, nextConfirm), 80);
+      return;
+    }
+    if (pin.length < 4) setPin((value) => value + digit);
   };
 
   const erase = () => {
+    setError(null);
     if (mode === "setup" && confirmPin.length > 0) {
       setConfirmPin((value) => value.slice(0, -1));
       return;
@@ -71,24 +84,23 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
   }
 
   const activeDots = mode === "setup" && pin.length >= 4 ? confirmPin.length : pin.length;
-  const helper = mode === "unlock" ? "PIN을 눌러 잠금을 해제해주세요." : pin.length < 4 ? "새 PIN을 입력해주세요." : "확인을 위해 한 번 더 입력해주세요.";
+  const helper = mode === "unlock"
+    ? "PIN 4자리를 입력하면 자동으로 열려요."
+    : pin.length < 4
+      ? "새 PIN 4자리를 입력해주세요."
+      : "확인을 위해 한 번 더 입력해주세요.";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#fff8ef] px-7 py-8 text-[#2f1b12]">
-      <section className="flex min-h-[760px] w-full max-w-md flex-col items-center rounded-[34px] border border-[#ead8c9] bg-[#fffaf3] px-9 py-8 shadow-[0_18px_45px_rgba(91,62,43,0.16)]">
-        <div className="mb-10 flex w-full items-center justify-between text-sm font-bold">
-          <span>9:41</span>
-          <span>●●●</span>
-        </div>
-
-        <div className="mt-10 flex flex-1 flex-col items-center text-center">
+      <section className="flex min-h-[720px] w-full max-w-md flex-col items-center rounded-[34px] border border-[#ead8c9] bg-[#fffaf3] px-9 py-10 shadow-[0_18px_45px_rgba(91,62,43,0.16)]">
+        <div className="mt-8 flex flex-1 flex-col items-center text-center">
           <div className="relative mb-6 h-16 w-20">
             <span className="absolute left-2 top-2 h-11 w-14 rounded-2xl bg-[#e78f70]" />
             <span className="absolute right-1 top-6 h-11 w-14 rounded-2xl bg-[#f1b69d]" />
-            <span className="absolute left-6 top-4 text-2xl">🧡</span>
+            <span className="absolute left-6 top-4 text-2xl">💗</span>
           </div>
 
-          <h1 className="text-4xl font-black">사람담</h1>
+          <BrandTitle size="lg" />
           <p className="mt-5 whitespace-pre-line text-base leading-relaxed text-[#5e473a]">
             소중한 사람들의 이야기를{"\n"}안전하게 담아두세요.
           </p>
@@ -102,7 +114,7 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
 
           {error && <p className="mt-4 rounded-full bg-[#fff1e8] px-4 py-2 text-sm font-bold text-[#c95735]">{error}</p>}
 
-          <div className="mt-12 grid w-full grid-cols-3 gap-x-9 gap-y-5">
+          <div className="mt-12 grid w-full grid-cols-3 place-items-center gap-x-9 gap-y-5">
             {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
               <div key={digit}>
                 <KeyButton digit={digit} onClick={() => addDigit(digit)} />
@@ -117,13 +129,15 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
             </button>
           </div>
 
-          <button
-            onClick={() => submit()}
-            disabled={isSubmitting || (mode === "unlock" ? pin.length < 4 : confirmPin.length < 4)}
-            className="mt-8 w-full rounded-full bg-[#d85b36] py-4 text-base font-extrabold text-white disabled:opacity-40"
-          >
-            {mode === "unlock" ? "잠금 해제" : "PIN 설정하고 시작하기"}
-          </button>
+          {mode === "setup" && (
+            <button
+              onClick={() => submit()}
+              disabled={isSubmitting || confirmPin.length < 4}
+              className="mt-8 w-full rounded-full bg-[#d85b36] py-4 text-base font-extrabold text-white disabled:opacity-40"
+            >
+              PIN 설정하고 시작하기
+            </button>
+          )}
         </div>
 
         <p className="flex items-center gap-2 text-xs font-semibold text-[#7c6252]">
@@ -131,6 +145,15 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
         </p>
       </section>
     </main>
+  );
+}
+
+export function BrandTitle({ size = "md" }: { size?: "md" | "lg" }) {
+  return (
+    <h1 className={`${size === "lg" ? "text-4xl" : "text-3xl"} font-black tracking-normal`}>
+      <span className="text-[#2f1b12]">사람</span>
+      <span className="text-[#d85b36]">談</span>
+    </h1>
   );
 }
 

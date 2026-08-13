@@ -1,10 +1,11 @@
-import { AnimatePresence } from "motion/react";
+﻿import { AnimatePresence } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import BottomNavigation, { AppTab } from "./components/navigation/BottomNavigation";
 import LockScreen from "./components/LockScreen";
+import GroupManagerSheet from "./components/people/GroupManagerSheet";
 import StoryCaptureSheet, { ApprovedMemoryItem, StorySavePayload } from "./components/person/StoryCaptureSheet";
 import { initialGroups, initialPeople } from "./demoData";
-import { CategoryType, CustomGroup, EventHistoryItem, InteractionHistory, Person } from "./types";
+import { CustomGroup, EventHistoryItem, InteractionHistory, Person } from "./types";
 import { normalizeMemoryText } from "./utils/saramdam";
 import { saveVault, VaultData } from "./vault";
 import AddPersonView from "./views/AddPersonView";
@@ -24,9 +25,12 @@ export default function App() {
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [checkInPersonId, setCheckInPersonId] = useState<string | null>(null);
   const [peopleQuery, setPeopleQuery] = useState("");
-  const [peopleCategory, setPeopleCategory] = useState<CategoryType | "전체">("전체");
+  const [peopleFilter, setPeopleFilter] = useState("전체");
   const [storyInitialPersonId, setStoryInitialPersonId] = useState<string | null | undefined>(undefined);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [addInitialName, setAddInitialName] = useState("");
+  const [groupManagerOpen, setGroupManagerOpen] = useState(false);
+  const [toast, setToast] = useState("");
   const [layer, setLayer] = useState<AppLayer>("root");
 
   const peopleRef = useRef<Person[]>([]);
@@ -117,7 +121,12 @@ export default function App() {
     setSelectedPersonId(person.id);
     setActiveTab("people");
     setEditingPerson(null);
-    closeLayer();
+    setAddInitialName("");
+    setLayer("detail");
+    historyLayerRef.current = "detail";
+    window.history.replaceState({ layer: "detail" }, "");
+    setToast(exists ? "변경사항을 저장했어요." : `${person.name}님을 사람談에 담았어요 🌿`);
+    window.setTimeout(() => setToast(""), 2500);
   };
 
   const updatePerson = (personId: string, updater: (person: Person) => Person) => {
@@ -175,7 +184,7 @@ export default function App() {
 
   const handleDeletePerson = (personId: string) => {
     const person = people.find((item) => item.id === personId);
-    if (!person || !window.confirm(`${person.name}님을 사람담에서 삭제할까요? 저장된 이야기와 함께한 마음 기록도 삭제됩니다.`)) return;
+    if (!person || !window.confirm(`${person.name}님을 사람談에서 삭제할까요?\n\n${person.name}님과 함께 담아둔 이야기와 관련 정보가 삭제됩니다.`)) return;
     const nextPeople = people.filter((item) => item.id !== personId);
     savePeople(nextPeople);
     setSelectedPersonId(nextPeople[0]?.id || null);
@@ -185,12 +194,56 @@ export default function App() {
 
   const openEditPerson = (person: Person) => {
     setEditingPerson(person);
+    setAddInitialName("");
     pushLayer("add");
   };
 
-  const openAddPerson = () => {
+  const openAddPerson = (initialName = "") => {
     setEditingPerson(null);
+    setAddInitialName(initialName);
     pushLayer("add");
+  };
+
+  const openExistingFromAdd = (personId: string) => {
+    setEditingPerson(null);
+    setAddInitialName("");
+    setSelectedPersonId(personId);
+    setLayer("detail");
+    historyLayerRef.current = "detail";
+    window.history.replaceState({ layer: "detail" }, "");
+  };
+
+  const createGroup = (name: string) => {
+    if (customGroups.some((group) => group.name === name)) return;
+    saveGroups([{ id: `g_${Date.now()}`, name }, ...customGroups]);
+  };
+
+  const renameGroup = (groupId: string, nextName: string) => {
+    const target = customGroups.find((group) => group.id === groupId);
+    if (!target || !nextName.trim()) return;
+    const cleanName = nextName.trim();
+    const nextGroups = customGroups.map((group) => group.id === groupId ? { ...group, name: cleanName } : group);
+    const nextPeople = people.map((person) => ({
+      ...person,
+      groups: person.groups.map((group) => group === target.name ? cleanName : group)
+    }));
+    setCustomGroups(nextGroups);
+    setPeople(nextPeople);
+    persistVault(nextPeople, nextGroups);
+    if (peopleFilter === target.name) setPeopleFilter(cleanName);
+  };
+
+  const deleteGroup = (group: CustomGroup) => {
+    if (!window.confirm(`${group.name} 그룹을 삭제할까요?\n\n그룹에 속한 사람과 기록은 삭제되지 않습니다.`)) return;
+    const nextGroups = customGroups.filter((item) => item.id !== group.id);
+    const nextPeople = people.map((person) => ({
+      ...person,
+      groups: person.groups.filter((name) => name !== group.name)
+    }));
+    setCustomGroups(nextGroups);
+    setPeople(nextPeople);
+    persistVault(nextPeople, nextGroups);
+    if (peopleFilter === group.name) setPeopleFilter("전체");
   };
 
   const handleImportBackup = (importedPeople: Person[], importedGroups: CustomGroup[]) => {
@@ -200,7 +253,7 @@ export default function App() {
   };
 
   const handleClearAllData = () => {
-    if (!window.confirm("모든 사람담 데이터를 삭제할까요? 암호화 vault 자체는 유지됩니다.")) return;
+    if (!window.confirm("모든 사람談 데이터를 삭제할까요? 암호화 vault 자체는 유지됩니다.")) return;
     savePeople([]);
     saveGroups([]);
     setSelectedPersonId(null);
@@ -228,12 +281,12 @@ export default function App() {
       <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-28 pt-7 md:max-w-3xl lg:max-w-5xl">
         {people.length === 0 && layer === "root" ? (
           <div className="flex min-h-[70vh] flex-col justify-center space-y-5 text-center">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-[#f8d8c7] text-4xl">🧡</div>
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-[#f8d8c7] text-4xl">💗</div>
             <div>
-              <h1 className="text-3xl font-black">사람담</h1>
-              <p className="mt-2 text-[#7c6252]">소중한 사람들의 이야기를 담아두세요.</p>
+              <h1 className="text-3xl font-black"><span>사람</span><span className="text-[#d85b36]">談</span></h1>
+              <p className="mt-2 text-[#7c6252]">소중한 사람들의 이야기를 담아보세요.</p>
             </div>
-            <button onClick={openAddPerson} className="rounded-full bg-[#d85b36] py-4 text-base font-extrabold text-white shadow-[0_12px_24px_rgba(216,91,54,0.25)]">새로운 사람 담기</button>
+            <button onClick={() => openAddPerson()} className="rounded-full bg-[#d85b36] py-4 text-base font-extrabold text-white shadow-[0_12px_24px_rgba(216,91,54,0.25)]">새로운 사람 담기</button>
             <button onClick={handleLoadDemoData} className="rounded-full border border-[#ead8c9] bg-[#fffaf3] py-4 text-base font-extrabold text-[#5a392a]">기존 demo data 표시</button>
           </div>
         ) : (
@@ -253,7 +306,15 @@ export default function App() {
               />
             )}
             {layer === "add" && (
-              <AddPersonView person={editingPerson} customGroups={customGroups} onBack={() => { setEditingPerson(null); closeLayer(); }} onSave={handleSavePerson} />
+              <AddPersonView
+                person={editingPerson}
+                people={people}
+                customGroups={customGroups}
+                initialName={addInitialName}
+                onBack={() => { setEditingPerson(null); setAddInitialName(""); closeLayer(); }}
+                onSave={handleSavePerson}
+                onOpenExisting={openExistingFromAdd}
+              />
             )}
             {layer === "root" && activeTab === "home" && (
               <HomeView people={people} onOpenPerson={openPerson} onAddPerson={openAddPerson} onStartCheckIn={startCheckIn} />
@@ -261,15 +322,30 @@ export default function App() {
             {layer === "root" && activeTab === "people" && (
               <PeopleView
                 people={people}
+                customGroups={customGroups}
                 query={peopleQuery}
-                selectedCategory={peopleCategory}
+                selectedFilter={peopleFilter}
                 onQueryChange={setPeopleQuery}
-                onCategoryChange={setPeopleCategory}
+                onFilterChange={setPeopleFilter}
                 onOpenPerson={openPerson}
                 onAddPerson={openAddPerson}
+                onManageGroups={() => setGroupManagerOpen(true)}
               />
             )}
-            {layer === "root" && activeTab === "checkin" && <CheckInView people={people} initialPersonId={checkInPersonId} />}
+            {layer === "root" && activeTab === "checkin" && (
+              <CheckInView
+                people={people}
+                initialPersonId={checkInPersonId}
+                onContactComplete={(personId, history) => {
+                  updatePerson(personId, (person) => ({
+                    ...person,
+                    lastContactDate: history.date,
+                    lastContactMedium: history.medium,
+                    history: [history, ...person.history]
+                  }));
+                }}
+              />
+            )}
             {layer === "root" && activeTab === "settings" && (
               <SettingsView
                 people={people}
@@ -308,6 +384,22 @@ export default function App() {
           />
         )}
       </AnimatePresence>
+
+      {groupManagerOpen && (
+        <GroupManagerSheet
+          groups={customGroups}
+          onClose={() => setGroupManagerOpen(false)}
+          onCreate={createGroup}
+          onRename={renameGroup}
+          onDelete={deleteGroup}
+        />
+      )}
+
+      {toast && (
+        <div className="fixed left-1/2 top-5 z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-extrabold text-[#5a392a] shadow-soft">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
@@ -369,3 +461,4 @@ function applyFamilyItems(person: Person, familyItems: ApprovedMemoryItem[]) {
 
   return children;
 }
+

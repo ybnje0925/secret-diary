@@ -9,11 +9,22 @@
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+  overscroll-behavior-y: none;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   background: #fff8ef;
   font-family: var(--font-sans);
+  overscroll-behavior-y: none;
+}
+
+#root {
+  min-height: 100vh;
+  overscroll-behavior-y: none;
 }
 
 button,

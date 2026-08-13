@@ -29,7 +29,7 @@ export default function BottomNavigation({ activeTab, onChangeTab, onQuickRecord
             </button>
           );
         })}
-        <button onClick={onQuickRecord} className="-mt-8 flex h-16 w-16 items-center justify-center justify-self-center rounded-full bg-[#d85b36] text-white shadow-[0_12px_24px_rgba(216,91,54,0.35)]">
+        <button onClick={onQuickRecord} aria-label="이야기 담기" className="-mt-8 flex h-16 w-16 items-center justify-center justify-self-center rounded-full bg-[#d85b36] text-white shadow-[0_12px_24px_rgba(216,91,54,0.35)]">
           <Plus className="h-8 w-8" />
         </button>
         {items.slice(2).map((item) => {

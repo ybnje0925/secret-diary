@@ -34,6 +34,10 @@ function getGeminiClient() {
   return aiClient;
 }
 
+function shouldUseLocalCheckInFallback(apiKey?: string) {
+  return process.env.NODE_ENV !== "production" || !apiKey || apiKey === "MY_GEMINI_API_KEY";
+}
+
 // REST API for quick-capture text analysis (STT one-liner memo or pasted
 // KakaoTalk/conversation text) using Gemini.
 app.post("/api/summarize-text", async (req, res) => {
@@ -146,6 +150,253 @@ app.post("/api/summarize-text", async (req, res) => {
     });
   }
 });
+
+app.post("/api/check-in-suggestions", async (req, res) => {
+  try {
+    const { person } = req.body;
+    if (!person?.name) {
+      return res.status(400).json({ success: false, error: "선택한 사람 정보가 필요합니다." });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (shouldUseLocalCheckInFallback(apiKey)) {
+      return res.json({ success: true, data: { topics: simulateCheckInTopics(person) }, simulated: true });
+    }
+
+    const ai = getGeminiClient();
+    const prompt = `
+You are helping with Saramdam, a relationship memory app.
+Recommend 2-4 check-in conversation topics using ONLY the provided person data.
+
+Rules:
+- Do not invent facts outside the provided data.
+- Do not invent names, family relations, ages, jobs, health status, or current situations.
+- If current status is unknown, clearly frame it as a past record.
+- Separate facts from suggested questions.
+- Show a source for every topic.
+- If evidence is weak, return fewer topics.
+- Handle sensitive topics gently. Sensitive categories include health, family problems, job changes, money, death, conflict, illness.
+- For sensitive topics, do not ask for a specific outcome. Suggest a soft check-in.
+
+Person data JSON:
+${JSON.stringify(person)}
+    `;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        topics: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              icon: { type: Type.STRING },
+              topic: { type: Type.STRING },
+              reason: { type: Type.STRING },
+              source: { type: Type.STRING },
+              sensitivity: { type: Type.STRING, enum: ["normal", "sensitive"] },
+              suggestedQuestion: { type: Type.STRING }
+            },
+            required: ["topic", "reason", "source", "sensitivity", "suggestedQuestion"]
+          }
+        }
+      },
+      required: ["topics"]
+    };
+
+    const aiResponse = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [{ text: prompt }],
+      config: { responseMimeType: "application/json", responseSchema, temperature: 0.2 }
+    });
+
+    const parsed = JSON.parse(aiResponse.text || "{\"topics\":[]}");
+    res.json({ success: true, data: parsed });
+  } catch (error: any) {
+    console.error("Check-in suggestions failed:", error);
+    const fallbackPerson = req.body?.person;
+    if (fallbackPerson?.name) {
+      return res.json({
+        success: true,
+        data: { topics: simulateCheckInTopics(fallbackPerson) },
+        fallback: true,
+        error: error.message || "AI 안부 추천에 실패해 저장된 기록 기반 추천을 사용했습니다."
+      });
+    }
+    res.status(500).json({ success: false, error: error.message || "안부 주제를 불러오지 못했습니다." });
+  }
+});
+
+app.post("/api/check-in-starters", async (req, res) => {
+  try {
+    const { person, topic, tone } = req.body;
+    if (!person?.name || !topic?.topic) {
+      return res.status(400).json({ success: false, error: "사람과 주제 정보가 필요합니다." });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (shouldUseLocalCheckInFallback(apiKey)) {
+      return res.json({ success: true, data: simulateCheckInStarters(person, topic, tone), simulated: true });
+    }
+
+    const ai = getGeminiClient();
+    const prompt = `
+Create 3 Korean conversation starter messages for Saramdam.
+Use ONLY the selected topic and source. Do not add new facts.
+
+Person:
+${JSON.stringify(person)}
+
+Selected topic:
+${JSON.stringify(topic)}
+
+Tone adjustment requested: ${tone || "casual"}
+
+Rules:
+- natural: warm and natural.
+- friendly: a bit more casual if relationship allows, but do not force banmal only from category.
+- polite: concise and respectful.
+- If topic is sensitive, be gentle and do not assume outcomes.
+- Do not mention facts not present in topic/source/person data.
+- Do not auto-send anything.
+    `;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        natural: { type: Type.STRING },
+        friendly: { type: Type.STRING },
+        polite: { type: Type.STRING }
+      },
+      required: ["natural", "friendly", "polite"]
+    };
+
+    const aiResponse = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: [{ text: prompt }],
+      config: { responseMimeType: "application/json", responseSchema, temperature: 0.4 }
+    });
+
+    const parsed = JSON.parse(aiResponse.text || "{}");
+    res.json({ success: true, data: parsed });
+  } catch (error: any) {
+    console.error("Check-in starters failed:", error);
+    const { person, topic, tone } = req.body || {};
+    if (person?.name && topic?.topic) {
+      return res.json({
+        success: true,
+        data: simulateCheckInStarters(person, topic, tone),
+        fallback: true,
+        error: error.message || "AI 문구 생성에 실패해 저장된 기록 기반 문구를 사용했습니다."
+      });
+    }
+    res.status(500).json({ success: false, error: error.message || "대화 시작 문구를 불러오지 못했습니다." });
+  }
+});
+
+function simulateCheckInTopics(person: any) {
+  const topics: any[] = [];
+  const history = Array.isArray(person.history) ? person.history : [];
+  const children = person.familyInfo?.children || [];
+  const preferences = person.preferences || {};
+
+  history.slice(0, 3).forEach((item: any, index: number) => {
+    const text = String(item.summary || "").split("\n")[0];
+    if (!text) return;
+    const sensitive = /수술|질병|아프|통증|병원|퇴사|이직|갈등|사망|장례|금전|걱정|힘들|스트레스/.test(text);
+    topics.push({
+      id: `sim-history-${index}`,
+      icon: sensitive ? "❤️" : pickCheckInIcon(text),
+      topic: sensitive ? "지난번 걱정했던 일" : makeCheckInTopicTitle(text),
+      reason: sensitive ? "지난번 조심스럽게 안부를 전하면 좋을 이야기를 나눴어요." : text,
+      source: `${item.date || "최근 기록"} · ${item.medium || "이야기"}`,
+      sensitivity: sensitive ? "sensitive" : "normal",
+      suggestedQuestion: sensitive
+        ? "상황을 단정하지 말고 요즘은 조금 괜찮아졌는지 조심스럽게 물어보는 건 어떨까요?"
+        : "그때 이야기했던 일은 요즘 어떤지 자연스럽게 물어보세요."
+    });
+  });
+
+  children.slice(0, 2).forEach((child: any, index: number) => {
+    if (!child.name && !child.memo) return;
+    const sensitive = /아프|수술|걱정|병원|갈등/.test(child.memo || "");
+    topics.push({
+      id: `sim-family-${index}`,
+      icon: "👧",
+      topic: `${child.name || "가족"} 이야기`,
+      reason: child.memo ? `${child.name}에 대해 이렇게 기록되어 있어요: ${child.memo}` : `${child.name}에 대한 가족 기록이 있어요.`,
+      source: "가족 정보에서",
+      sensitivity: sensitive ? "sensitive" : "normal",
+      suggestedQuestion: sensitive ? "가족들은 요즘 잘 지내는지 부담스럽지 않게 물어보세요." : `${child.name}는 요즘 어떻게 지내는지 물어보세요.`
+    });
+  });
+
+  if (preferences.hobbies) {
+    topics.push({
+      id: "sim-hobby",
+      icon: pickCheckInIcon(preferences.hobbies),
+      topic: makeCheckInTopicTitle(preferences.hobbies),
+      reason: `${person.name}님은 ${preferences.hobbies}에 관심이 있어요.`,
+      source: "취향 정보에서",
+      sensitivity: "normal",
+      suggestedQuestion: "요즘도 즐기고 있는지 자연스럽게 물어보세요."
+    });
+  }
+
+  if (preferences.food) {
+    topics.push({
+      id: "sim-food",
+      icon: "☕",
+      topic: "좋아하는 것 이야기",
+      reason: `${preferences.food}라고 기록되어 있어요.`,
+      source: "취향 정보에서",
+      sensitivity: "normal",
+      suggestedQuestion: "최근에도 좋아하는 맛집이나 메뉴가 있는지 물어보세요."
+    });
+  }
+
+  return topics.slice(0, 4);
+}
+
+function simulateCheckInStarters(person: any, topic: any, tone: string) {
+  const respectful = String(person.category || "").includes("회사");
+  const sensitive = topic.sensitivity === "sensitive";
+  if (tone === "short") {
+    return {
+      natural: "오랜만이야! 문득 생각나서 연락했어. 잘 지내?",
+      friendly: `${person.name}아 잘 지내? 생각나서 연락했어.`,
+      polite: "오랜만이에요. 잘 지내고 계신가요?"
+    };
+  }
+  return {
+    natural: sensitive
+      ? "오랜만이야. 지난번에 이야기했던 게 문득 생각났어. 요즘은 조금 괜찮아?"
+      : `오랜만이야! 지난번에 ${topic.topic} 얘기했던 게 생각났어. 요즘은 어때?`,
+    friendly: respectful
+      ? `${person.name}님, 오랜만이에요. ${topic.topic} 이야기가 생각났는데 요즘은 어떠세요?`
+      : `${person.name}아 갑자기 네 생각나서 ㅋㅋ ${sensitive ? "요즘은 좀 괜찮아?" : `${topic.topic}는 요즘도 이어가고 있어?`}`,
+    polite: sensitive
+      ? "오랜만이에요. 지난번에 이야기하셨던 일이 문득 생각났어요. 요즘은 조금 괜찮으신가요?"
+      : `오랜만이에요. 지난번에 ${topic.topic} 이야기가 생각났어요. 요즘은 어떠세요?`
+  };
+}
+
+function pickCheckInIcon(text: string) {
+  if (/커피|카페|핸드드립/.test(text)) return "☕";
+  if (/테니스|운동|축구|골프/.test(text)) return "🎾";
+  if (/가족|딸|아들|아내|남편|아이/.test(text)) return "👧";
+  if (/회사|업무|직장|이직/.test(text)) return "💼";
+  if (/아프|건강|수술|병원|걱정/.test(text)) return "❤️";
+  return "🌿";
+}
+
+function makeCheckInTopicTitle(text: string) {
+  if (/커피|카페|핸드드립/.test(text)) return "요즘도 커피 즐겨요?";
+  if (/테니스|운동/.test(text)) return "운동 이야기는 어때요?";
+  if (/회사|업무|직장/.test(text)) return "요즘 일은 어때요?";
+  return text.length > 18 ? `${text.slice(0, 18)}...` : text;
+}
 
 // Any unmatched /api/* request must fail as JSON, never fall through to the
 // SPA's HTML catch-all — that HTML response is what breaks the frontend's

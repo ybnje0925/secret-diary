@@ -1,4 +1,5 @@
 import { MessageCircle } from "lucide-react";
+import { useMemo, useState } from "react";
 import Avatar from "../common/Avatar";
 import { Person } from "../../types";
 import { daysSince, getRecentMemory, getRelationLine } from "../../utils/saramdam";
@@ -10,13 +11,24 @@ interface Props {
 }
 
 export default function TodayPersonCard({ people, onOpenPerson, onStartCheckIn }: Props) {
-  const person = [...people].sort((a, b) => daysSince(b.lastContactDate) - daysSince(a.lastContactDate))[0];
+  const candidates = useMemo(() => [...people].sort((a, b) => daysSince(b.lastContactDate) - daysSince(a.lastContactDate)).slice(0, 5), [people]);
+  const [index, setIndex] = useState(0);
+  const [dragStartX, setDragStartX] = useState<number | null>(null);
+  const person = candidates[index];
+
+  const finishDrag = (clientX: number) => {
+    if (dragStartX === null || candidates.length < 2) return;
+    const delta = clientX - dragStartX;
+    if (delta < -50) setIndex((value) => Math.min(candidates.length - 1, value + 1));
+    if (delta > 50) setIndex((value) => Math.max(0, value - 1));
+    setDragStartX(null);
+  };
 
   if (!person) {
     return (
       <section className="rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-6 shadow-soft">
         <p className="text-sm font-semibold text-[#9a6044]">오늘 떠올려볼 사람이 아직 없어요.</p>
-        <p className="mt-2 text-sm text-[#7c6252]">처음엔 한 사람만 담아도 괜찮아요.</p>
+        <p className="mt-2 text-sm text-[#7c6252]">처음에는 한 사람만 담아도 괜찮아요.</p>
       </section>
     );
   }
@@ -27,7 +39,13 @@ export default function TodayPersonCard({ people, onOpenPerson, onStartCheckIn }
         <h2 className="text-lg font-extrabold text-[#2f1b12]">오늘 떠올려볼 사람</h2>
         <button className="text-sm font-semibold text-[#8d5b45]" onClick={() => onOpenPerson(person.id)}>더보기</button>
       </div>
-      <div className="rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-5 shadow-soft">
+      <div
+        className="select-none rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-5 shadow-soft"
+        onTouchStart={(event) => setDragStartX(event.touches[0].clientX)}
+        onTouchEnd={(event) => finishDrag(event.changedTouches[0].clientX)}
+        onMouseDown={(event) => setDragStartX(event.clientX)}
+        onMouseUp={(event) => finishDrag(event.clientX)}
+      >
         <div className="flex gap-4">
           <Avatar person={person} size="md" />
           <div className="min-w-0 flex-1">
@@ -37,7 +55,7 @@ export default function TodayPersonCard({ people, onOpenPerson, onStartCheckIn }
           </div>
         </div>
         <blockquote className="mt-4 rounded-2xl bg-white/70 px-4 py-3 text-center text-[15px] font-semibold leading-relaxed text-[#5a392a]">
-          “{getRecentMemory(person).split(".")[0]}.”
+          “{getRecentMemory(person).split(".")[0]}”
         </blockquote>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button onClick={() => onOpenPerson(person.id)} className="rounded-full border border-[#dfa98f] bg-white py-3 text-sm font-extrabold text-[#c95735]">
@@ -48,9 +66,9 @@ export default function TodayPersonCard({ people, onOpenPerson, onStartCheckIn }
           </button>
         </div>
         <div className="mt-4 flex justify-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-[#c95735]" />
-          <span className="h-2 w-2 rounded-full bg-[#ead8c9]" />
-          <span className="h-2 w-2 rounded-full bg-[#ead8c9]" />
+          {candidates.map((candidate, dotIndex) => (
+            <button key={candidate.id} onClick={() => setIndex(dotIndex)} aria-label={`${dotIndex + 1}번째 사람 보기`} className={`h-2 rounded-full transition-all ${dotIndex === index ? "w-5 bg-[#c95735]" : "w-2 bg-[#ead8c9]"}`} />
+          ))}
         </div>
       </div>
     </section>

@@ -21,7 +21,7 @@ interface Props {
   onDeleteEvent: (eventId: string) => void;
 }
 
-const tabs = ["최근 이야기", "정보", "함께한 마음", "전체 기록"] as const;
+const tabs = ["최근 이야기", "전체 기록", "정보", "함께한 마음"] as const;
 type DetailTab = typeof tabs[number];
 
 export default function PersonDetailView({
@@ -52,7 +52,7 @@ export default function PersonDetailView({
               <MoreHorizontal className="h-6 w-6" />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-11 z-20 w-36 overflow-hidden rounded-2xl border border-[#ead8c9] bg-white shadow-soft">
+              <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-2xl border border-[#ead8c9] bg-white shadow-soft">
                 <button onClick={() => { setMenuOpen(false); onEdit(); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-[#2f1b12]">
                   <Edit3 className="h-4 w-4" /> 사람 정보 수정
                 </button>
@@ -88,6 +88,19 @@ export default function PersonDetailView({
       </div>
 
       <MemorySummaryCard person={person} onEdit={onEdit} />
+
+      {person.history.length === 0 && !person.preferences.notes && (
+        <section className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-5 text-center shadow-soft">
+          <h2 className="text-xl font-black text-[#2f1b12]">아직 담긴 이야기가 많지 않아요.</h2>
+          <p className="mt-2 text-sm leading-relaxed text-[#7c6252]">
+            {person.name}님과 다음에 이야기를 나눈 뒤 작은 기억부터 하나씩 담아보세요.
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <button onClick={onStartStory} className="rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white">첫 이야기 담기</button>
+            <button onClick={onEdit} className="rounded-full border border-[#dfa98f] bg-white py-3 text-sm font-extrabold text-[#c95735]">정보 조금 더 추가하기</button>
+          </div>
+        </section>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <button onClick={onStartStory} className="rounded-full bg-[#d85b36] py-4 text-sm font-extrabold text-white shadow-[0_10px_22px_rgba(216,91,54,0.22)]">

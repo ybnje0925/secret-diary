@@ -1,4 +1,4 @@
-import { AlertCircle, Check, ChevronRight, Loader2, MessageCircle, Mic, PenLine, ShieldCheck, Square, X } from "lucide-react";
+import { AlertCircle, Check, ChevronRight, Loader2, MessageCircle, Mic, PenLine, Search, ShieldCheck, Square, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import Avatar from "../common/Avatar";
@@ -34,7 +34,7 @@ function getSpeechRecognitionCtor(): any {
 }
 
 export default function StoryCaptureSheet({ people, initialPersonId, onClose, onSave }: Props) {
-  const [selectedPersonId, setSelectedPersonId] = useState(initialPersonId || people[0]?.id || "");
+  const [selectedPersonId, setSelectedPersonId] = useState(initialPersonId || "");
   const [step, setStep] = useState<"person" | "method" | "input" | "review" | "done">(initialPersonId ? "method" : "person");
   const [method, setMethod] = useState<"voice" | "paste" | "direct" | null>(null);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -42,12 +42,26 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
   const [text, setText] = useState("");
   const [summary, setSummary] = useState("");
   const [items, setItems] = useState<ApprovedMemoryItem[]>([]);
+  const [personQuery, setPersonQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
 
   const person = useMemo(() => people.find((item) => item.id === selectedPersonId) || null, [people, selectedPersonId]);
+  const filteredPeople = useMemo(() => {
+    const query = personQuery.trim().toLowerCase();
+    if (!query) return people;
+    return people.filter((item) => [
+      item.name,
+      item.category,
+      item.company,
+      ...item.groups,
+      item.preferences.hobbies,
+      item.preferences.food,
+      item.preferences.notes
+    ].join(" ").toLowerCase().includes(query));
+  }, [people, personQuery]);
 
   useEffect(() => {
     return () => recognitionRef.current?.stop();
@@ -93,7 +107,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
   const analyzeText = async () => {
     if (!person || !text.trim() || isAnalyzing) return;
     if (text.length > maxTextLength) {
-      setError("입력한 내용이 너무 길어요. 현재는 약 12,000자 이하로 나눠서 정리해주세요.");
+      setError("입력한 내용이 너무 길어요. 현재는 12,000자 이하로 나누어 정리해주세요.");
       return;
     }
 
@@ -117,7 +131,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
       setItems(makeReviewItems(result, person));
       setStep("review");
     } catch (err: any) {
-      setError(err.message || "AI 정리에 실패했어요. 잠시 후 다시 시도하거나 그대로 기록해주세요.");
+      setError(err.message || "AI 정리에 실패했어요. 잠시 뒤 다시 시도하거나 그대로 기록해주세요.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -156,24 +170,31 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
         {step === "person" && (
           <div className="space-y-3">
             <p className="text-sm leading-relaxed text-[#7c6252]">먼저 누구의 이야기인지 선택해주세요.</p>
-            {people.map((item) => (
-              <button key={item.id} onClick={() => { setSelectedPersonId(item.id); setStep("method"); }} className="flex w-full items-center gap-3 rounded-2xl border border-[#ead8c9] bg-white/70 p-3 text-left">
-                <Avatar person={item} size="sm" />
-                <span className="min-w-0 flex-1">
-                  <b className="block text-[#2f1b12]">{item.name}</b>
-                  <small className="block text-[#7c6252]">{getRelationLine(item)}</small>
-                </span>
-                <ChevronRight className="h-5 w-5 text-[#8d5b45]" />
-              </button>
-            ))}
+            <label className="relative block">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8f7564]" />
+              <input value={personQuery} onChange={(event) => setPersonQuery(event.target.value)} placeholder="이름, 관계, 그룹, 관심사 검색" className="saram-input h-12 pl-12 text-sm" />
+            </label>
+            <div className="max-h-[48vh] space-y-2 overflow-y-auto pr-1">
+              {filteredPeople.map((item) => (
+                <button key={item.id} onClick={() => { setSelectedPersonId(item.id); setStep("method"); }} className="flex w-full items-center gap-3 rounded-2xl border border-[#ead8c9] bg-white/70 p-3 text-left">
+                  <Avatar person={item} size="sm" />
+                  <span className="min-w-0 flex-1">
+                    <b className="block text-[#2f1b12]">{item.name}</b>
+                    <small className="block text-[#7c6252]">{getRelationLine(item)}</small>
+                  </span>
+                  <ChevronRight className="h-5 w-5 text-[#8d5b45]" />
+                </button>
+              ))}
+              {filteredPeople.length === 0 && <p className="rounded-2xl bg-white/70 p-5 text-center text-sm text-[#7c6252]">찾는 사람이 없어요.</p>}
+            </div>
           </div>
         )}
 
         {step === "method" && (
           <div className="space-y-3">
             <MethodButton icon={<Mic />} title="말로 남기기" desc="친구를 만나고 돌아오는 길에 있었던 일을 편하게 말해요." onClick={() => { setMethod("voice"); setStep("input"); }} />
-            <MethodButton icon={<MessageCircle />} title="대화 붙여넣기" desc="카카오톡, 문자, 메신저 등의 대화를 붙여넣어요." onClick={() => { setMethod("paste"); setStep("input"); }} />
-            <MethodButton icon={<PenLine />} title="직접 기록하기" desc="사용자가 직접 내용을 작성하고 저장해요." onClick={() => { setMethod("direct"); setStep("input"); }} />
+            <MethodButton icon={<MessageCircle />} title="대화 붙여넣기" desc="카카오톡, 문자, 메신저 대화를 붙여넣어요." onClick={() => { setMethod("paste"); setStep("input"); }} />
+            <MethodButton icon={<PenLine />} title="직접 기록하기" desc="기억하고 싶은 내용을 직접 적어요." onClick={() => { setMethod("direct"); setStep("input"); }} />
           </div>
         )}
 
@@ -187,13 +208,13 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
                   <Mic className="h-10 w-10" />
                 </div>
                 <button onClick={isListening ? () => recognitionRef.current?.stop() : startListening} className="rounded-full bg-[#d85b36] px-5 py-3 font-extrabold text-white">
-                  {isListening ? <><Square className="mr-2 inline h-4 w-4" />멈추기</> : "녹음 시작"}
+                  {isListening ? <><Square className="mr-2 inline h-4 w-4" />멈추기</> : "음성 시작"}
                 </button>
               </div>
             )}
             {method === "paste" && (
               <p className="rounded-2xl bg-[#fff1df] p-4 text-sm leading-relaxed text-[#5e473a]">
-                카톡이나 메시지 내용을 그대로 붙여넣어도 괜찮아요. 사람담이 기억할 만한 이야기만 정리해드립니다.
+                카톡이나 메시지 내용을 그대로 붙여넣어도 괜찮아요. 사람談이 기억할 만한 이야기만 정리해드립니다.
               </p>
             )}
             <textarea
@@ -248,7 +269,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
             )}
             <PrivacyNotice />
             <button onClick={saveApproved} disabled={!summary.trim()} className="w-full rounded-full bg-[#d85b36] py-4 text-lg font-black text-white disabled:opacity-40">
-              선택한 이야기 사람담에 담기
+              선택한 이야기 사람談에 담기
             </button>
           </div>
         )}
@@ -276,14 +297,14 @@ function MethodButton({ icon, title, desc, onClick }: { icon: ReactNode; title: 
 
 function RecordBasics({ date, medium, onDateChange, onMediumChange }: { date: string; medium: ContactMedium; onDateChange: (value: string) => void; onMediumChange: (value: ContactMedium) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <label>
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <label className="min-w-0">
         <span className="mb-1 block text-xs font-extrabold text-[#5a392a]">날짜</span>
-        <input type="date" value={date} onChange={(event) => onDateChange(event.target.value)} className="saram-input py-3 text-sm" />
+        <input type="date" value={date} onChange={(event) => onDateChange(event.target.value)} className="saram-input w-full min-w-0 py-3 text-sm" />
       </label>
-      <label>
+      <label className="min-w-0">
         <span className="mb-1 block text-xs font-extrabold text-[#5a392a]">연락 방식</span>
-        <select value={medium} onChange={(event) => onMediumChange(event.target.value as ContactMedium)} className="saram-input py-3 text-sm">
+        <select value={medium} onChange={(event) => onMediumChange(event.target.value as ContactMedium)} className="saram-input w-full min-w-0 py-3 text-sm">
           {mediumOptions.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
       </label>
@@ -295,7 +316,7 @@ function AnalyzingState() {
   return (
     <div className="rounded-2xl border border-[#ead8c9] bg-[#fff6ee] p-5 text-center">
       <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#d85b36]" />
-      <h3 className="mt-3 font-black text-[#2f1b12]">사람담이 이야기 속 기억을 정리하고 있어요 🌿</h3>
+      <h3 className="mt-3 font-black text-[#2f1b12]">사람談이 이야기 속 기억을 정리하고 있어요 🌿</h3>
       <p className="mt-1 text-sm text-[#7c6252]">가족 이야기, 관심사, 약속, 최근 근황을 살펴보고 있어요.</p>
     </div>
   );

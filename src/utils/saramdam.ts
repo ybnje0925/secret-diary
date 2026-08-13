@@ -1,6 +1,7 @@
 import { CategoryType, Person } from "../types";
 
 export const categoryLabels: CategoryType[] = ["가족", "친구", "지인", "회사", "그룹", "기타"];
+export const primaryCategoryLabels: CategoryType[] = ["가족", "친구", "회사", "지인", "기타"];
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
@@ -63,6 +64,31 @@ export function searchPeople(people: Person[], query: string, category: Category
 
     return haystack.includes(normalized);
   });
+}
+
+export function getSearchReason(person: Person, query: string): string {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return "";
+
+  const checks: Array<[string, string]> = [
+    ["관계", person.category],
+    ["그룹", person.groups.join(", ")],
+    ["회사", person.company],
+    ["취향", person.preferences.food],
+    ["관심사", person.preferences.hobbies],
+    ["메모", person.preferences.notes],
+    ["가족", [person.familyInfo?.spouseName, ...(person.familyInfo?.children || []).map((child) => `${child.name} ${child.memo}`)].filter(Boolean).join(", ")]
+  ];
+
+  const match = checks.find(([, value]) => value.toLowerCase().includes(normalized));
+  if (!match) return "";
+  const [, value] = match;
+  const compact = value.split("\n").find((line) => line.toLowerCase().includes(normalized)) || value;
+  return `${match[0]} · ${compact.slice(0, 28)}${compact.length > 28 ? "..." : ""}`;
+}
+
+export function getLastStoryDate(person: Person): string {
+  return person.history[0]?.date || person.lastContactDate || "";
 }
 
 export function normalizeMemoryText(value: string) {
