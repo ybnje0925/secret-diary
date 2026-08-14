@@ -501,7 +501,7 @@ async function startServer() {
   });
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`[용쨔의 비밀노트] Server running on http://localhost:${PORT}`);
+    console.log(`[사람談] Server running on http://localhost:${PORT}`);
   });
 }
 

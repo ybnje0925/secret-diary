@@ -276,7 +276,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
       </p>
 
       <button className="sticky bottom-3 w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">
-        {isEdit ? "변경사항 저장" : "사람담에 추가하기"}
+        {isEdit ? "변경사항 저장" : "사람談에 추가하기"}
       </button>
     </form>
   );

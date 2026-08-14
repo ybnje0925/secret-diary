@@ -1,7 +1,5 @@
 import {
   Bell,
-  Calendar,
-  Check,
   ChevronRight,
   CloudDownload,
   CloudUpload,
@@ -10,7 +8,6 @@ import {
   Info,
   KeyRound,
   Lock,
-  Palette,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -56,6 +53,7 @@ export default function SettingsView({
   const [restoreBackup, setRestoreBackup] = useState<{ salt: string; payload: string } | null>(null);
   const [restorePin, setRestorePin] = useState("");
   const [restoreError, setRestoreError] = useState("");
+  const [aiInfoOpen, setAiInfoOpen] = useState(false);
   const [toast, setToast] = useState("");
 
   const showToast = (message: string) => {
@@ -85,7 +83,7 @@ export default function SettingsView({
         salt,
         payload
       });
-      showToast("암호화 백업 파일을 만들었어요.");
+      showToast("암호화된 백업 파일을 만들었어요.");
     } catch {
       showToast("백업 파일을 만드는 데 실패했어요.");
     }
@@ -93,7 +91,7 @@ export default function SettingsView({
 
   const handlePlainExport = () => {
     const confirmed = window.confirm(
-      "읽을 수 있는 JSON으로 내보내면 파일 안의 사람 이야기와 정보가 암호화되지 않습니다.\n\n계속 내보낼까요?"
+      "이 파일에는 사람과 관련된 개인정보가 포함될 수 있으며 암호화되지 않습니다.\n\n내보낼까요?"
     );
     if (!confirmed) return;
     downloadJson(`saramdam-data-export-${todayString()}.json`, {
@@ -113,7 +111,7 @@ export default function SettingsView({
     reader.onload = () => {
       try {
         const parsed = parseBackupFile(String(reader.result || ""));
-        if (!window.confirm("현재 사람談 데이터가 백업 파일 내용으로 바뀔 수 있어요.\n\n계속 복원할까요?")) return;
+        if (!window.confirm("현재 기록이 백업 파일의 내용으로 변경될 수 있어요.\n\n복원할까요?")) return;
 
         if (parsed.format === "plain") {
           onImport(parsed.data.people, parsed.data.customGroups);
@@ -125,7 +123,7 @@ export default function SettingsView({
         setRestorePin("");
         setRestoreError("");
       } catch {
-        showToast("백업 파일을 읽을 수 없어요. 파일 형식을 확인해주세요.");
+        showToast("백업 파일을 읽을 수 없어요.");
       }
     };
     reader.readAsText(file);
@@ -149,112 +147,94 @@ export default function SettingsView({
 
   const handleClearAll = () => {
     const confirmed = window.confirm(
-      "모든 사람과 함께 담아둔 이야기를 삭제할까요?\n\n삭제 전 암호화 백업을 먼저 만들어두는 것을 권장해요."
+      "모든 사람과 이야기를 삭제할까요?\n\n사람談에 저장된 사람, 이야기, 관련 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
     );
     if (confirmed) onClearAll();
   };
 
   return (
-    <div className="space-y-4">
-      <header className="space-y-2">
+    <div className="space-y-5">
+      <header className="space-y-1">
         <h1 className="text-[22px] font-black text-[#2f1b12]">설정</h1>
-        <p className="text-xs leading-relaxed text-[#7c6252]">보안, 백업, AI 사용 여부를 사람談에 맞게 정리해요.</p>
+        <p className="text-xs leading-relaxed text-[#7c6252]">사람談을 안전하게 쓰기 위한 기본 설정이에요.</p>
       </header>
 
       <Section title="보안">
-        <SettingButton icon={<Lock />} label="앱 잠금" value="PIN 사용 중" onClick={onLock} />
+        <SettingButton icon={<Lock />} label="앱 잠금" value="지금 잠그기" onClick={onLock} />
         <SettingButton icon={<KeyRound />} label="PIN 변경" value="현재 PIN 확인 후 변경" onClick={() => setPinModalOpen(true)} />
         <SettingControl icon={<ShieldCheck />} label="자동 잠금">
           <select
             value={appSettings.autoLockMinutes}
             onChange={(event) => onSettingsChange({ autoLockMinutes: event.target.value as AppSettings["autoLockMinutes"] })}
-            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-2 text-sm font-bold text-[#5a392a] outline-none"
+            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-bold text-[#5a392a] outline-none"
           >
             <option value="off">사용 안 함</option>
-            <option value="1">1분 후</option>
-            <option value="5">5분 후</option>
-            <option value="15">15분 후</option>
-            <option value="30">30분 후</option>
+            <option value="1">1분</option>
+            <option value="5">5분</option>
+            <option value="15">15분</option>
+            <option value="30">30분</option>
           </select>
         </SettingControl>
       </Section>
 
-      <Section title="데이터 관리">
-        <SettingButton icon={<CloudUpload />} label="데이터 백업" value="암호화 파일 저장" onClick={handleEncryptedBackup} />
-        <SettingButton icon={<CloudDownload />} label="데이터 복원" value="백업 파일 선택" onClick={() => fileInputRef.current?.click()} />
-        <SettingButton icon={<FileDown />} label="모든 데이터 내보내기" value="읽을 수 있는 JSON" onClick={handlePlainExport} />
-        <SettingButton icon={<Trash2 />} label="모든 데이터 삭제" value="확인 후 삭제" danger onClick={handleClearAll} />
+      <Section title="데이터">
+        <SettingButton icon={<CloudUpload />} label="백업" value="암호화 파일 만들기" onClick={handleEncryptedBackup} />
+        <SettingButton icon={<CloudDownload />} label="복원" value="백업 파일 선택" onClick={() => fileInputRef.current?.click()} />
+        <SettingButton icon={<FileDown />} label="내 데이터 내보내기" value="읽을 수 있는 JSON" onClick={handlePlainExport} />
         <input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleRestoreFile} />
       </Section>
 
-      <Section title="AI 및 개인정보">
-        <SettingControl icon={<Sparkles />} label="AI 기능 사용">
+      <Section title="AI">
+        <SettingControl icon={<Sparkles />} label="AI 기능">
           <button
             type="button"
             onClick={() => onSettingsChange({ aiEnabled: !appSettings.aiEnabled })}
-            className={`rounded-full px-4 py-2 text-sm font-extrabold ${appSettings.aiEnabled ? "bg-[#d85b36] text-white" : "bg-[#f4e8dc] text-[#7c6252]"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${appSettings.aiEnabled ? "bg-[#d85b36] text-white" : "bg-[#f4e8dc] text-[#7c6252]"}`}
           >
             {appSettings.aiEnabled ? "사용 중" : "꺼짐"}
           </button>
         </SettingControl>
-        <InfoCard>
-          AI로 이야기 정리를 사용하면 입력한 대화 텍스트가 분석을 위해 AI 서비스로 전송됩니다. 안부 추천은 선택한 사람의 일부 프로필과 최근 기록만 사용하며, 전체 vault를 통째로 보내지 않습니다.
-        </InfoCard>
-        {!appSettings.aiEnabled && (
-          <InfoCard tone="quiet">AI 기능이 꺼져 있어요. 직접 기록하기와 저장된 기록 기반의 기본 안부 문구는 계속 사용할 수 있습니다.</InfoCard>
-        )}
+        <SettingButton icon={<Info />} label="AI가 사용하는 정보" value="자세히" onClick={() => setAiInfoOpen(true)} />
       </Section>
 
-      <Section title="알림">
-        <ToggleRow
-          icon={<Calendar />}
-          label="기념일 알림"
-          checked={appSettings.eventReminder}
-          onChange={() => onSettingsChange({ eventReminder: !appSettings.eventReminder })}
-        />
+      <Section title="알림 및 기억">
         <ToggleRow
           icon={<Bell />}
-          label="오랜만인 사람 알림"
+          label="안부 기준"
           checked={appSettings.checkInReminder}
           onChange={() => onSettingsChange({ checkInReminder: !appSettings.checkInReminder })}
         />
         <ToggleRow
-          icon={<ShieldCheck />}
-          label="연락 주기 참고 표시"
-          checked={appSettings.contactCycleReminder}
-          onChange={() => onSettingsChange({ contactCycleReminder: !appSettings.contactCycleReminder })}
+          icon={<Bell />}
+          label="기념일"
+          checked={appSettings.eventReminder}
+          onChange={() => onSettingsChange({ eventReminder: !appSettings.eventReminder })}
         />
-        <SettingControl icon={<Bell />} label="새 사람 기본 연락 주기">
+        <SettingControl icon={<Bell />} label="기본 연락주기">
           <select
             value={appSettings.defaultRemindIntervalDays}
             onChange={(event) => onSettingsChange({ defaultRemindIntervalDays: Number(event.target.value) as AppSettings["defaultRemindIntervalDays"] })}
-            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-2 text-sm font-bold text-[#5a392a] outline-none"
+            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-bold text-[#5a392a] outline-none"
           >
             <option value={30}>30일</option>
             <option value={60}>60일</option>
             <option value={90}>90일</option>
           </select>
         </SettingControl>
-        <InfoCard tone="quiet">현재 알림은 앱 안에서 참고용으로 보여드려요. 휴대폰 OS 푸시 알림은 아직 연결되어 있지 않습니다.</InfoCard>
       </Section>
 
-      <Section title="기타">
-        <SettingControl icon={<Palette />} label="테마 설정">
-          <select
-            value={appSettings.theme}
-            onChange={(event) => onSettingsChange({ theme: event.target.value as AppSettings["theme"] })}
-            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-2 text-sm font-bold text-[#5a392a] outline-none"
-          >
-            <option value="warm">따뜻한 테마</option>
-            <option value="system">시스템 기본</option>
-          </select>
-        </SettingControl>
-        <InfoCard>
-          사람談은 소중한 사람들과 나눈 작은 이야기를 암호화 vault에 보관합니다. 백업 파일은 PIN을 잊으면 복원할 수 없으니 따로 기억해주세요.
-        </InfoCard>
-        <SettingButton icon={<HelpCircle />} label="정보 및 도움말" value="백업과 개인정보 안내" onClick={() => showToast("도움말 화면은 다음 단계에서 더 자세히 연결할게요.")} />
+      <Section title="사람談">
+        <SettingButton icon={<HelpCircle />} label="도움말" value="준비 중" onClick={() => showToast("도움말은 준비 중이에요.")} />
+        <SettingButton icon={<Info />} label="개인정보 안내" value="기기 안 암호화 보관" onClick={() => showToast("기록은 암호화 vault에 보관됩니다.")} />
         <SettingButton icon={<Info />} label="앱 정보" value="사람談 v2" />
       </Section>
+
+      <section className="pt-1">
+        <h2 className="mb-2 text-[15px] font-extrabold text-[#b53c2f]">데이터 초기화</h2>
+        <div className="overflow-hidden rounded-[16px] border border-[#f0c7bd] bg-[#fff7f3] shadow-soft">
+          <SettingButton icon={<Trash2 />} label="모든 데이터 삭제" value="되돌릴 수 없음" danger onClick={handleClearAll} />
+        </div>
+      </section>
 
       {pinModalOpen && (
         <PinChangeModal
@@ -279,6 +259,22 @@ export default function SettingsView({
             setRestoreError("");
           }}
         />
+      )}
+
+      {aiInfoOpen && (
+        <ModalShell title="AI가 사용하는 정보" onClose={() => setAiInfoOpen(false)}>
+          <div className="space-y-4 text-sm leading-relaxed text-[#5e473a]">
+            <InfoBlock title="이야기 정리">
+              사용자가 직접 입력하거나 붙여넣은 텍스트를 분석합니다. 저장 여부는 사용자가 마지막에 선택합니다.
+            </InfoBlock>
+            <InfoBlock title="안부 추천">
+              선택한 사람의 일부 기록과 프로필 정보만 사용합니다. 전체 vault를 AI로 전송하지 않습니다.
+            </InfoBlock>
+            <InfoBlock title="AI를 끄면">
+              사람 등록, 직접 기록, 검색, 상세보기, 백업/복원은 계속 사용할 수 있고 AI 정리와 AI 안부 문구만 비활성화됩니다.
+            </InfoBlock>
+          </div>
+        </ModalShell>
       )}
 
       {toast && (
@@ -317,7 +313,7 @@ function SettingButton({
       <IconSlot danger={danger}>{icon}</IconSlot>
       <span className={`flex-1 text-[13px] font-bold ${danger ? "text-[#b53c2f]" : "text-[#2f1b12]"}`}>{label}</span>
       {value && <span className="max-w-[45%] truncate text-xs text-[#8f7564]">{value}</span>}
-      {onClick && <ChevronRight className="h-5 w-5 text-[#8f7564]" />}
+      {onClick && <ChevronRight className="h-4 w-4 text-[#8f7564]" />}
     </button>
   );
 }
@@ -349,17 +345,18 @@ function ToggleRow({ icon, label, checked, onChange }: { icon?: ReactNode; label
 
 function IconSlot({ children, danger }: { children?: ReactNode; danger?: boolean }) {
   return (
-    <span className={`flex h-7 w-7 items-center justify-center ${danger ? "text-[#b53c2f]" : "text-[#5a392a]"} [&>svg]:h-5 [&>svg]:w-5`}>
+    <span className={`flex h-7 w-7 items-center justify-center ${danger ? "text-[#b53c2f]" : "text-[#5a392a]"} [&>svg]:h-4 [&>svg]:w-4`}>
       {children}
     </span>
   );
 }
 
-function InfoCard({ children, tone = "peach" }: { children: ReactNode; tone?: "peach" | "quiet" }) {
+function InfoBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className={`border-b border-[#f0dfd1] px-3.5 py-3 text-xs leading-relaxed last:border-b-0 ${tone === "peach" ? "bg-[#fff2e7] text-[#6d4735]" : "bg-[#fffaf3] text-[#8f7564]"}`}>
-      {children}
-    </div>
+    <section className="rounded-[16px] bg-[#fff6ee] p-3">
+      <h3 className="text-sm font-black text-[#2f1b12]">{title}</h3>
+      <p className="mt-1 text-xs leading-relaxed text-[#7c6252]">{children}</p>
+    </section>
   );
 }
 

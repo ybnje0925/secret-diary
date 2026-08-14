@@ -15,6 +15,7 @@ import HomeView from "./views/HomeView";
 import PeopleView from "./views/PeopleView";
 import PersonDetailView from "./views/PersonDetailView";
 import SettingsView from "./views/SettingsView";
+import OnboardingView from "./views/OnboardingView";
 
 type AppLayer = "root" | "detail" | "add";
 
@@ -34,6 +35,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [layer, setLayer] = useState<AppLayer>("root");
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
+  const [firstUsePromptDismissed, setFirstUsePromptDismissed] = useState(false);
 
   const peopleRef = useRef<Person[]>([]);
   const groupsRef = useRef<CustomGroup[]>([]);
@@ -199,9 +201,14 @@ export default function App() {
   };
 
   const handleSaveStory = (personId: string, payload: StorySavePayload) => {
+    const isFirstStory = people.find((person) => person.id === personId)?.history.length === 0;
     updatePerson(personId, (person) => applyApprovedStory(person, payload));
     setSelectedPersonId(personId);
     setLayer("detail");
+    if (isFirstStory) {
+      setToast("첫 번째 이야기를 담아두었어요 🌿");
+      window.setTimeout(() => setToast(""), 2600);
+    }
   };
 
   const handleUpdateHistory = (personId: string, history: InteractionHistory) => {
@@ -321,6 +328,7 @@ export default function App() {
     savePeople([]);
     saveGroups([]);
     setSelectedPersonId(null);
+    setFirstUsePromptDismissed(false);
   };
 
   const openPerson = (personId: string) => {
@@ -350,6 +358,7 @@ export default function App() {
   }
 
   const selectedPerson = people.find((person) => person.id === selectedPersonId) || null;
+  const shouldShowOnboarding = !appSettings.onboardingCompleted && people.length === 0 && layer === "root";
 
   return (
     <div
@@ -362,15 +371,28 @@ export default function App() {
       }}
     >
       <main className="mx-auto min-h-screen w-full max-w-md px-4 pb-24 pt-5 md:max-w-3xl lg:max-w-5xl">
-        {people.length === 0 && layer === "root" ? (
+        {shouldShowOnboarding ? (
+          <OnboardingView
+            onComplete={() => {
+              updateAppSettings({ onboardingCompleted: true });
+              openAddPerson();
+            }}
+            onSkip={() => updateAppSettings({ onboardingCompleted: true })}
+          />
+        ) : people.length === 0 && layer === "root" ? (
           <div className="flex min-h-[70vh] flex-col justify-center space-y-4 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f8d8c7] text-3xl">💗</div>
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f8d8c7] text-3xl">🌿</div>
             <div>
-              <h1 className="text-[22px] font-black"><span>사람</span><span className="text-[#d85b36]">談</span></h1>
-              <p className="mt-1.5 text-sm text-[#7c6252]">소중한 사람들의 이야기를 담아보세요.</p>
+              <h1 className="text-[22px] font-black">첫 번째 사람을 담아볼까요?</h1>
+              <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-[#7c6252]">
+                가장 먼저 떠오르는 사람 한 명이면 충분해요.
+              </p>
             </div>
-            <button onClick={() => openAddPerson()} className="rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">새로운 사람 담기</button>
-            <button onClick={handleLoadDemoData} className="rounded-full border border-[#ead8c9] bg-[#fffaf3] py-3 text-sm font-extrabold text-[#5a392a]">기존 demo data 표시</button>
+            <button onClick={() => openAddPerson()} className="rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">+ 사람 담기</button>
+            {!firstUsePromptDismissed && (
+              <button onClick={() => setFirstUsePromptDismissed(true)} className="rounded-full border border-[#ead8c9] bg-[#fffaf3] py-3 text-sm font-extrabold text-[#5a392a]">나중에 할게요</button>
+            )}
+            <button onClick={handleLoadDemoData} className="text-xs font-extrabold text-[#8d5b45]">기존 demo data 표시</button>
           </div>
         ) : (
           <>

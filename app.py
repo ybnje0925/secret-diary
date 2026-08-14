@@ -6,7 +6,7 @@ import re
 
 # Streamlit Page Configuration
 st.set_page_config(
-    page_title="용쨔의 비밀노트 📓 지인 관계 & 미팅 리마인드",
+    page_title="사람談",
     page_icon="📓",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -305,7 +305,7 @@ st.markdown("""
             </div>
             <div>
                 <h1 style="font-size: 22px; margin: 0; padding: 0; color: #352f28; font-weight: 800;">
-                    용쨔의 비밀노트 <span class="badge-tag">Streamlit 배포버전</span>
+                    사람談 <span class="badge-tag">Streamlit 배포버전</span>
                 </h1>
                 <p style="font-size: 13px; color: #a39788; margin: 4px 0 0 0;">만나기 1분 전, 소중한 사람들의 자녀 정보와 최근 대화 내용을 완벽하게 리마인드하세요.</p>
             </div>

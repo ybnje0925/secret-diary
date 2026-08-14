@@ -44,7 +44,7 @@ export default function BackupRestore({
 
     const link = document.createElement("a");
     link.href = url;
-    link.download = `용쨔의_비밀노트_백업_${new Date().toISOString().split("T")[0]}.json`;
+    link.download = `사람談_백업_${new Date().toISOString().split("T")[0]}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

@@ -4,6 +4,7 @@ export type ThemeMode = "warm" | "system";
 export interface AppSettings {
   autoLockMinutes: AutoLockMinutes;
   aiEnabled: boolean;
+  onboardingCompleted: boolean;
   defaultRemindIntervalDays: 30 | 60 | 90;
   theme: ThemeMode;
   eventReminder: boolean;
@@ -16,6 +17,7 @@ const SETTINGS_KEY = "saramdam_app_settings";
 export const defaultAppSettings: AppSettings = {
   autoLockMinutes: "5",
   aiEnabled: true,
+  onboardingCompleted: false,
   defaultRemindIntervalDays: 60,
   theme: "warm",
   eventReminder: true,

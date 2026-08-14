@@ -187,5 +187,5 @@ export function parseBackupFile(rawJson: string): ParsedBackup {
   if (Array.isArray(json.people)) {
     return { format: "plain", data: migrateVaultData(json) };
   }
-  throw new Error("올바른 용쨔의 비밀노트 백업 파일이 아닙니다.");
+  throw new Error("올바른 사람談 백업 파일이 아닙니다.");
 }
