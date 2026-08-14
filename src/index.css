@@ -39,7 +39,7 @@ button {
 }
 
 .shadow-soft {
-  box-shadow: 0 8px 24px rgba(91, 62, 43, 0.08);
+  box-shadow: 0 6px 18px rgba(91, 62, 43, 0.055);
 }
 
 .saram-input {

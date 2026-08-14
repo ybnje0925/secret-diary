@@ -24,10 +24,10 @@ export default function GroupManagerSheet({ groups, onClose, onCreate, onRename,
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
-      <section onClick={(event) => event.stopPropagation()} className="mb-3 w-full max-w-md rounded-[28px] bg-[#fffaf3] p-5 shadow-[0_20px_60px_rgba(47,27,18,0.25)]">
+      <section onClick={(event) => event.stopPropagation()} className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
         <header className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-black text-[#2f1b12]">그룹 관리</h2>
+            <h2 className="text-[20px] font-black text-[#2f1b12]">그룹 관리</h2>
             <p className="mt-1 text-sm text-[#7c6252]">그룹을 정리해도 사람과 이야기는 삭제되지 않아요.</p>
           </div>
           <button onClick={onClose} className="rounded-full bg-[#fff1e8] p-2 text-[#5a392a]">

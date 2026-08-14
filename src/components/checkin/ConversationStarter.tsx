@@ -65,18 +65,18 @@ export default function ConversationStarter({
       <button onClick={onBack} className="text-sm font-bold text-[#8d5b45]">← 주제 다시 선택</button>
       <section>
         <p className="text-sm font-extrabold text-[#d85b36]">{person.name}에게 · {getRelationLine(person)}</p>
-        <h1 className="mt-1 text-2xl font-black text-[#2f1b12]">어떻게 말을 꺼내볼까요?</h1>
+        <h1 className="mt-1 text-[22px] font-black text-[#2f1b12]">어떻게 말을 꺼내볼까요?</h1>
       </section>
 
-      <section className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
+      <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
         <p className="text-sm text-[#7c6252]">선택한 주제</p>
-        <h2 className="mt-1 text-xl font-extrabold text-[#2f1b12]">{topic.icon} {topic.topic}</h2>
+        <h2 className="mt-1 text-[18px] font-extrabold text-[#2f1b12]">{topic.icon} {topic.topic}</h2>
         <p className="mt-2 text-sm leading-relaxed text-[#5e473a]">{topic.reason}</p>
         <p className="mt-3 rounded-xl bg-[#fff6ee] px-3 py-2 text-xs text-[#8f7564]">기록 근거: {topic.source}</p>
       </section>
 
       {isLoading && (
-        <div className="rounded-2xl border border-[#ead8c9] bg-[#fff6ee] p-5 text-center">
+        <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
           <RotateCcw className="mx-auto h-8 w-8 animate-spin text-[#d85b36]" />
           <p className="mt-3 font-black text-[#2f1b12]">자연스러운 첫 문장을 고르고 있어요 🌿</p>
         </div>
@@ -106,7 +106,7 @@ export default function ConversationStarter({
       {toast && <p className="rounded-full bg-[#eaf0dc] px-4 py-3 text-center text-sm font-extrabold text-[#4f6f3e]">{toast}</p>}
 
       {showComplete && (
-        <section className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
+        <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
           <h2 className="font-black text-[#2f1b12]">안부를 전했나요?</h2>
           <p className="mt-1 text-sm text-[#7c6252]">복사만으로는 연락 기록이 업데이트되지 않아요.</p>
           <select value={medium} onChange={(event) => setMedium(event.target.value as ContactMedium)} className="saram-input mt-3 py-3 text-sm">
@@ -126,7 +126,7 @@ export default function ConversationStarter({
 
 function StarterCard({ label, text, onCopy }: { label: string; text: string; onCopy: (text: string) => void }) {
   return (
-    <article className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
+    <article className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
       <div className="mb-2 flex items-center justify-between">
         <p className="text-sm font-extrabold text-[#a24c31]">{label}</p>
         <button onClick={() => onCopy(text)} className="rounded-full border border-[#ead8c9] bg-white px-3 py-1 text-xs font-bold text-[#5a392a]">

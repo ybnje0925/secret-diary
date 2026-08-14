@@ -21,6 +21,7 @@ export interface StorySavePayload {
 
 interface Props {
   people: Person[];
+  aiEnabled?: boolean;
   initialPersonId?: string | null;
   onClose: () => void;
   onSave: (personId: string, payload: StorySavePayload) => void;
@@ -33,7 +34,7 @@ function getSpeechRecognitionCtor(): any {
   return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
 }
 
-export default function StoryCaptureSheet({ people, initialPersonId, onClose, onSave }: Props) {
+export default function StoryCaptureSheet({ people, aiEnabled = true, initialPersonId, onClose, onSave }: Props) {
   const [selectedPersonId, setSelectedPersonId] = useState(initialPersonId || "");
   const [step, setStep] = useState<"person" | "method" | "input" | "review" | "done">(initialPersonId ? "method" : "person");
   const [method, setMethod] = useState<"voice" | "paste" | "direct" | null>(null);
@@ -106,6 +107,10 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
 
   const analyzeText = async () => {
     if (!person || !text.trim() || isAnalyzing) return;
+    if (!aiEnabled) {
+      setError("지금은 AI 기능을 사용하지 않아요. 그대로 기록하기는 계속 사용할 수 있어요.");
+      return;
+    }
     if (text.length > maxTextLength) {
       setError("입력한 내용이 너무 길어요. 현재는 12,000자 이하로 나누어 정리해주세요.");
       return;
@@ -155,11 +160,11 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
-      <section onClick={(event) => event.stopPropagation()} className="mb-3 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-[#fffaf3] p-5 pb-8 shadow-[0_20px_60px_rgba(47,27,18,0.25)]">
+      <section onClick={(event) => event.stopPropagation()} className="mb-3 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[22px] bg-[#fffaf3] p-4 pb-6 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
         <div className="mx-auto mb-4 h-1 w-16 rounded-full bg-[#cdb7a7]" />
         <div className="mb-5 flex items-start justify-between">
           <div>
-            <h2 className="text-2xl font-black leading-tight text-[#2f1b12]">오늘 어떤 이야기를<br />담아볼까요?</h2>
+            <h2 className="text-[22px] font-black leading-tight text-[#2f1b12]">오늘 어떤 이야기를<br />담아볼까요?</h2>
             {person && <p className="mt-2 text-sm font-bold text-[#d85b36]">{person.name} <span className="font-medium text-[#8d5b45]">{getRelationLine(person)}</span></p>}
           </div>
           <button onClick={onClose} className="rounded-full bg-[#f6eadf] p-2 text-[#2f1b12]">
@@ -172,7 +177,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
             <p className="text-sm leading-relaxed text-[#7c6252]">먼저 누구의 이야기인지 선택해주세요.</p>
             <label className="relative block">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8f7564]" />
-              <input value={personQuery} onChange={(event) => setPersonQuery(event.target.value)} placeholder="이름, 관계, 그룹, 관심사 검색" className="saram-input h-14 pl-12 pr-4 text-sm" />
+              <input value={personQuery} onChange={(event) => setPersonQuery(event.target.value)} placeholder="이름, 관계, 그룹, 관심사 검색" className="saram-input h-11 pl-10 pr-3 text-sm" />
             </label>
             <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
               {filteredPeople.map((item) => (
@@ -185,7 +190,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
                   <ChevronRight className="h-5 w-5 text-[#8d5b45]" />
                 </button>
               ))}
-              {filteredPeople.length === 0 && <p className="rounded-2xl bg-white/70 p-5 text-center text-sm text-[#7c6252]">찾는 사람이 없어요.</p>}
+              {filteredPeople.length === 0 && <p className="rounded-[16px] bg-white/70 p-4 text-center text-xs text-[#7c6252]">찾는 사람이 없어요.</p>}
             </div>
           </div>
         )}
@@ -202,7 +207,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
           <div className="space-y-4">
             <RecordBasics date={date} medium={medium} onDateChange={setDate} onMediumChange={setMedium} />
             {method === "voice" && (
-              <div className="rounded-2xl border border-[#ead8c9] bg-[#fff6ee] p-5 text-center">
+              <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
                 <p className="font-extrabold text-[#2f1b12]">{isListening ? `${person.name}와 있었던 이야기를 듣고 있어요.` : "말로 남긴 내용은 텍스트만 사용해요."}</p>
                 <div className={`mx-auto my-5 flex h-24 w-24 items-center justify-center rounded-full ${isListening ? "animate-pulse bg-[#d85b36] text-white" : "bg-[#f7d8c7] text-[#d85b36]"}`}>
                   <Mic className="h-10 w-10" />
@@ -229,7 +234,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
             {isAnalyzing && <AnalyzingState />}
             <div className="space-y-2">
               {method !== "direct" && (
-                <button onClick={analyzeText} disabled={isAnalyzing || !text.trim() || text.length > maxTextLength} className="w-full rounded-full bg-[#d85b36] py-4 font-extrabold text-white disabled:opacity-40">
+                <button onClick={analyzeText} disabled={isAnalyzing || !text.trim() || text.length > maxTextLength} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white disabled:opacity-40">
                   {method === "voice" ? "AI로 정리하기" : "이야기 정리하기"}
                 </button>
               )}
@@ -248,7 +253,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
 
         {step === "review" && (
           <div className="space-y-5">
-            <h3 className="text-xl font-black text-[#2f1b12]">이런 이야기를 발견했어요</h3>
+            <h3 className="text-[20px] font-black text-[#2f1b12]">이런 이야기를 발견했어요</h3>
             <RecordBasics date={date} medium={medium} onDateChange={setDate} onMediumChange={setMedium} />
             <label>
               <span className="mb-2 block text-sm font-extrabold text-[#2f1b12]">오늘 이야기 요약</span>
@@ -268,7 +273,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
               </div>
             )}
             <PrivacyNotice />
-            <button onClick={saveApproved} disabled={!summary.trim()} className="w-full rounded-full bg-[#d85b36] py-4 text-lg font-black text-white disabled:opacity-40">
+            <button onClick={saveApproved} disabled={!summary.trim()} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-black text-white disabled:opacity-40">
               선택한 이야기 사람談에 담기
             </button>
           </div>
@@ -277,7 +282,7 @@ export default function StoryCaptureSheet({ people, initialPersonId, onClose, on
         {step === "done" && (
           <div className="py-10 text-center">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#eaf0dc] text-4xl">🌿</div>
-            <h3 className="text-2xl font-black text-[#2f1b12]">이야기를 잘 담아두었어요</h3>
+            <h3 className="text-[22px] font-black text-[#2f1b12]">이야기를 잘 담아두었어요</h3>
             <p className="mt-2 text-sm text-[#7c6252]">그 사람 상세화면으로 돌아갑니다.</p>
           </div>
         )}
@@ -314,7 +319,7 @@ function RecordBasics({ date, medium, onDateChange, onMediumChange }: { date: st
 
 function AnalyzingState() {
   return (
-    <div className="rounded-2xl border border-[#ead8c9] bg-[#fff6ee] p-5 text-center">
+    <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
       <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#d85b36]" />
       <h3 className="mt-3 font-black text-[#2f1b12]">사람談이 이야기 속 기억을 정리하고 있어요 🌿</h3>
       <p className="mt-1 text-sm text-[#7c6252]">가족 이야기, 관심사, 약속, 최근 근황을 살펴보고 있어요.</p>

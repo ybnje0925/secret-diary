@@ -17,27 +17,27 @@ const items = [
 
 export default function BottomNavigation({ activeTab, onChangeTab, onQuickRecord }: Props) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ead8c9] bg-[#fffaf3]/95 px-5 pb-[max(0.6rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ead8c9] bg-[#fffaf3]/95 px-5 pb-[max(0.45rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur">
       <div className="mx-auto grid max-w-md grid-cols-5 items-center">
         {items.slice(0, 2).map((item) => {
           const Icon = item.icon;
           const active = activeTab === item.id;
           return (
-            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-1 py-1 text-xs font-bold ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
-              <Icon className="h-5 w-5" />
+            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-0.5 py-1 text-[10px] font-bold ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
+              <Icon className="h-[19px] w-[19px]" />
               {item.label}
             </button>
           );
         })}
-        <button onClick={onQuickRecord} aria-label="이야기 담기" className="-mt-8 flex h-16 w-16 items-center justify-center justify-self-center rounded-full bg-[#d85b36] text-white shadow-[0_12px_24px_rgba(216,91,54,0.35)]">
-          <Plus className="h-8 w-8" />
+        <button onClick={onQuickRecord} aria-label="이야기 담기" className="-mt-7 flex h-14 w-14 items-center justify-center justify-self-center rounded-full bg-[#d85b36] text-white shadow-[0_10px_20px_rgba(216,91,54,0.26)]">
+          <Plus className="h-7 w-7" />
         </button>
         {items.slice(2).map((item) => {
           const Icon = item.icon;
           const active = activeTab === item.id;
           return (
-            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-1 py-1 text-xs font-bold ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
-              <Icon className="h-5 w-5" />
+            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-0.5 py-1 text-[10px] font-bold ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
+              <Icon className="h-[19px] w-[19px]" />
               {item.label}
             </button>
           );

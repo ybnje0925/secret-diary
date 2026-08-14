@@ -17,9 +17,9 @@ interface Props {
 
 export default function ConversationTopicCard({ topic, onSelect }: Props) {
   return (
-    <button onClick={() => onSelect(topic)} className="w-full rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 text-left shadow-soft">
+    <button onClick={() => onSelect(topic)} className="w-full rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 text-left shadow-soft">
       <div className="flex gap-3">
-        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#f8e8dc] text-2xl">{topic.icon}</span>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f8e8dc] text-xl">{topic.icon}</span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2 font-extrabold text-[#2f1b12]">
             {topic.topic}

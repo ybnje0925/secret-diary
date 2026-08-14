@@ -135,9 +135,9 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         <button className="text-base font-extrabold text-[#c95735]">{isEdit ? "저장" : "추가"}</button>
       </header>
 
-      <section className="rounded-2xl bg-[#fff0e3] p-5">
+      <section className="rounded-[18px] bg-[#fff0e3] p-4">
         <div className="flex items-center gap-4">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[#f8dfcd] text-3xl">🌱</span>
+          <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#f8dfcd] text-2xl">🌱</span>
           <p className="text-[15px] font-semibold leading-relaxed text-[#3f2a20]">
             처음부터 모든 걸 적을 필요는 없어요.<br />이름과 관계만으로 시작해도 충분해요.
           </p>
@@ -275,7 +275,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         <span>이야기는 앞으로의 기록을 통해 자연스럽게 채워질 거예요.</span>
       </p>
 
-      <button className="sticky bottom-3 w-full rounded-full bg-[#d85b36] py-4 text-base font-extrabold text-white shadow-[0_12px_24px_rgba(216,91,54,0.25)]">
+      <button className="sticky bottom-3 w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">
         {isEdit ? "변경사항 저장" : "사람담에 추가하기"}
       </button>
     </form>

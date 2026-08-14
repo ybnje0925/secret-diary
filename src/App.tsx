@@ -6,6 +6,7 @@ import GroupManagerSheet from "./components/people/GroupManagerSheet";
 import StoryCaptureSheet, { ApprovedMemoryItem, StorySavePayload } from "./components/person/StoryCaptureSheet";
 import { initialGroups, initialPeople } from "./demoData";
 import { CustomGroup, EventHistoryItem, InteractionHistory, Person } from "./types";
+import { AppSettings, loadAppSettings, saveAppSettings } from "./utils/appSettings";
 import { normalizeMemoryText } from "./utils/saramdam";
 import { saveVault, VaultData } from "./vault";
 import AddPersonView from "./views/AddPersonView";
@@ -32,12 +33,14 @@ export default function App() {
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [layer, setLayer] = useState<AppLayer>("root");
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
 
   const peopleRef = useRef<Person[]>([]);
   const groupsRef = useRef<CustomGroup[]>([]);
   const historyLayerRef = useRef<AppLayer>("root");
   const backPressedAtRef = useRef(0);
   const touchStartXRef = useRef<number | null>(null);
+  const autoLockTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   useEffect(() => {
     if (!vaultKey) return;
@@ -111,6 +114,20 @@ export default function App() {
     setSelectedPersonId(loadedPeople[0]?.id || null);
   };
 
+  const updateAppSettings = (patch: Partial<AppSettings>) => {
+    const nextSettings = { ...appSettings, ...patch };
+    setAppSettings(nextSettings);
+    saveAppSettings(nextSettings);
+  };
+
+  const handleVaultRekey = (key: CryptoKey, data: VaultData) => {
+    setVaultKey(key);
+    setPeople(data.people);
+    setCustomGroups(data.customGroups);
+    peopleRef.current = data.people;
+    groupsRef.current = data.customGroups;
+  };
+
   const handleLock = () => {
     setVaultKey(null);
     setPeople([]);
@@ -122,6 +139,31 @@ export default function App() {
     setActiveTab("home");
   };
 
+  useEffect(() => {
+    if (!vaultKey || appSettings.autoLockMinutes === "off") {
+      if (autoLockTimerRef.current) window.clearTimeout(autoLockTimerRef.current);
+      return;
+    }
+
+    const resetAutoLockTimer = () => {
+      if (autoLockTimerRef.current) window.clearTimeout(autoLockTimerRef.current);
+      autoLockTimerRef.current = window.setTimeout(() => {
+        handleLock();
+        setToast("자동 잠금으로 사람談을 잠갔어요.");
+        window.setTimeout(() => setToast(""), 2000);
+      }, Number(appSettings.autoLockMinutes) * 60 * 1000);
+    };
+
+    resetAutoLockTimer();
+    const events: Array<keyof WindowEventMap> = ["pointerdown", "keydown", "touchstart"];
+    events.forEach((eventName) => window.addEventListener(eventName, resetAutoLockTimer, { passive: true }));
+
+    return () => {
+      if (autoLockTimerRef.current) window.clearTimeout(autoLockTimerRef.current);
+      events.forEach((eventName) => window.removeEventListener(eventName, resetAutoLockTimer));
+    };
+  }, [vaultKey, appSettings.autoLockMinutes]);
+
   const handleLoadDemoData = () => {
     savePeople(initialPeople);
     saveGroups(initialGroups);
@@ -130,21 +172,24 @@ export default function App() {
 
   const handleSavePerson = (person: Person) => {
     const exists = people.some((item) => item.id === person.id);
-    const nextPeople = exists ? people.map((item) => (item.id === person.id ? person : item)) : [person, ...people];
-    const nextGroups = Array.from(new Set([...customGroups.map((group) => group.name), ...person.groups]))
+    const personToSave = exists
+      ? person
+      : { ...person, remindIntervalDays: person.remindIntervalDays || appSettings.defaultRemindIntervalDays };
+    const nextPeople = exists ? people.map((item) => (item.id === person.id ? personToSave : item)) : [personToSave, ...people];
+    const nextGroups = Array.from(new Set([...customGroups.map((group) => group.name), ...personToSave.groups]))
       .filter(Boolean)
       .map((name, index) => customGroups.find((group) => group.name === name) || { id: `g_${Date.now()}_${index}`, name });
 
     saveGroups(nextGroups);
     savePeople(nextPeople);
-    setSelectedPersonId(person.id);
+    setSelectedPersonId(personToSave.id);
     setActiveTab("people");
     setEditingPerson(null);
     setAddInitialName("");
     setLayer("detail");
     historyLayerRef.current = "detail";
     window.history.replaceState({ layer: "detail" }, "");
-    setToast(exists ? "변경사항을 저장했어요." : `${person.name}님을 사람談에 담았어요 🌿`);
+    setToast(exists ? "변경사항을 저장했어요." : `${personToSave.name}님을 사람談에 담았어요 🌿`);
     window.setTimeout(() => setToast(""), 2500);
   };
 
@@ -316,16 +361,16 @@ export default function App() {
         touchStartXRef.current = null;
       }}
     >
-      <main className="mx-auto min-h-screen w-full max-w-md px-5 pb-28 pt-7 md:max-w-3xl lg:max-w-5xl">
+      <main className="mx-auto min-h-screen w-full max-w-md px-4 pb-24 pt-5 md:max-w-3xl lg:max-w-5xl">
         {people.length === 0 && layer === "root" ? (
-          <div className="flex min-h-[70vh] flex-col justify-center space-y-5 text-center">
-            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] bg-[#f8d8c7] text-4xl">💗</div>
+          <div className="flex min-h-[70vh] flex-col justify-center space-y-4 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f8d8c7] text-3xl">💗</div>
             <div>
-              <h1 className="text-3xl font-black"><span>사람</span><span className="text-[#d85b36]">談</span></h1>
-              <p className="mt-2 text-[#7c6252]">소중한 사람들의 이야기를 담아보세요.</p>
+              <h1 className="text-[22px] font-black"><span>사람</span><span className="text-[#d85b36]">談</span></h1>
+              <p className="mt-1.5 text-sm text-[#7c6252]">소중한 사람들의 이야기를 담아보세요.</p>
             </div>
-            <button onClick={() => openAddPerson()} className="rounded-full bg-[#d85b36] py-4 text-base font-extrabold text-white shadow-[0_12px_24px_rgba(216,91,54,0.25)]">새로운 사람 담기</button>
-            <button onClick={handleLoadDemoData} className="rounded-full border border-[#ead8c9] bg-[#fffaf3] py-4 text-base font-extrabold text-[#5a392a]">기존 demo data 표시</button>
+            <button onClick={() => openAddPerson()} className="rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">새로운 사람 담기</button>
+            <button onClick={handleLoadDemoData} className="rounded-full border border-[#ead8c9] bg-[#fffaf3] py-3 text-sm font-extrabold text-[#5a392a]">기존 demo data 표시</button>
           </div>
         ) : (
           <>
@@ -373,6 +418,7 @@ export default function App() {
             {layer === "root" && activeTab === "checkin" && (
               <CheckInView
                 people={people}
+                aiEnabled={appSettings.aiEnabled}
                 initialPersonId={checkInPersonId}
                 onContactComplete={(personId, history) => {
                   updatePerson(personId, (person) => ({
@@ -389,9 +435,12 @@ export default function App() {
                 people={people}
                 customGroups={customGroups}
                 vaultKey={vaultKey}
+                appSettings={appSettings}
+                onSettingsChange={updateAppSettings}
                 onImport={handleImportBackup}
                 onClearAll={handleClearAllData}
                 onLock={handleLock}
+                onVaultRekey={handleVaultRekey}
               />
             )}
           </>
@@ -413,6 +462,7 @@ export default function App() {
         {storyInitialPersonId !== undefined && (
           <StoryCaptureSheet
             people={people}
+            aiEnabled={appSettings.aiEnabled}
             initialPersonId={storyInitialPersonId}
             onClose={() => setStoryInitialPersonId(undefined)}
             onSave={(personId, payload) => {

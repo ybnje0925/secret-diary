@@ -8,6 +8,7 @@ import { daysSince, formatDateKo, getRecentMemory, getRelationLine, normalizeMem
 
 interface Props {
   people: Person[];
+  aiEnabled?: boolean;
   initialPersonId?: string | null;
   onContactComplete: (personId: string, history: InteractionHistory) => void;
 }
@@ -16,7 +17,7 @@ type Step = "main" | "picker" | "topics" | "starter";
 
 const sensitivePattern = /수술|질병|아프|통증|병원|퇴사|이직|갈등|사망|장례|금전|빚|걱정|힘들|스트레스|가족 일/;
 
-export default function CheckInView({ people, initialPersonId, onContactComplete }: Props) {
+export default function CheckInView({ people, aiEnabled = true, initialPersonId, onContactComplete }: Props) {
   const [step, setStep] = useState<Step>(initialPersonId ? "topics" : "main");
   const [selectedId, setSelectedId] = useState<string | null>(initialPersonId || null);
   const [selectedTopic, setSelectedTopic] = useState<ConversationTopic | null>(null);
@@ -64,6 +65,11 @@ export default function CheckInView({ people, initialPersonId, onContactComplete
   const loadTopics = async (person: Person) => {
     setIsLoadingTopics(true);
     setTopicError(null);
+    if (!aiEnabled) {
+      setTopics(makeLocalTopics(person));
+      setIsLoadingTopics(false);
+      return;
+    }
     try {
       const response = await fetch("/api/check-in-suggestions", {
         method: "POST",
@@ -85,6 +91,11 @@ export default function CheckInView({ people, initialPersonId, onContactComplete
   const loadStarters = async (person: Person, topic: ConversationTopic, tone: "casual" | "polite" | "short") => {
     setIsLoadingStarters(true);
     setStarterError(null);
+    if (!aiEnabled) {
+      setStarters(makeLocalStarters(person, topic, tone));
+      setIsLoadingStarters(false);
+      return;
+    }
     try {
       const response = await fetch("/api/check-in-starters", {
         method: "POST",
@@ -103,7 +114,7 @@ export default function CheckInView({ people, initialPersonId, onContactComplete
   };
 
   if (!people.length) {
-    return <p className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-6 text-center text-[#7c6252]">안부를 전할 사람이 아직 없어요.</p>;
+    return <p className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center text-sm text-[#7c6252]">안부를 전할 사람이 아직 없어요.</p>;
   }
 
   if (step === "picker") {
@@ -111,12 +122,12 @@ export default function CheckInView({ people, initialPersonId, onContactComplete
       <div className="space-y-5">
         <button onClick={() => setStep("main")} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
         <section>
-          <h1 className="text-3xl font-black text-[#2f1b12]">누구에게 안부를 전할까요?</h1>
+          <h1 className="text-[22px] font-black text-[#2f1b12]">누구에게 안부를 전할까요?</h1>
           <p className="mt-2 text-sm leading-relaxed text-[#7c6252]">연락 주기와 상관없이 원하는 사람을 선택할 수 있어요.</p>
         </section>
         <label className="relative block">
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8f7564]" />
-          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="이름, 관계, 그룹 검색" className="h-13 w-full rounded-2xl border border-[#ead8c9] bg-[#fffaf3] pl-12 pr-4 text-[15px] text-[#2f1b12] outline-none focus:border-[#d85b36]" />
+          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="이름, 관계, 그룹 검색" className="h-11 w-full rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] pl-10 pr-3 text-[13px] text-[#2f1b12] outline-none focus:border-[#d85b36]" />
         </label>
         <div className="space-y-3">
           {searchedPeople.map((person) => (
@@ -135,13 +146,13 @@ export default function CheckInView({ people, initialPersonId, onContactComplete
         <button onClick={() => setStep("main")} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
         <section>
           <p className="text-sm font-extrabold text-[#d85b36]">{selected.name}에게</p>
-          <h1 className="mt-1 text-3xl font-black text-[#2f1b12]">무슨 이야기를 해볼까요?</h1>
-          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[#7c6252]">함께 나눴던 이야기에서{"\n"}자연스럽게 꺼낼 만한 주제를 찾아봤어요.</p>
+          <h1 className="mt-1 text-[22px] font-black text-[#2f1b12]">무슨 이야기를 해볼까요?</h1>
+          <p className="mt-1.5 whitespace-pre-line text-xs leading-relaxed text-[#7c6252]">함께 나눴던 이야기에서{"\n"}자연스럽게 꺼낼 만한 주제를 찾아봤어요.</p>
         </section>
         {isLoadingTopics && <LoadingCard text={`${selected.name}와 나눴던 이야기를 살펴보고 있어요 🌿`} />}
         {topicError && <ErrorCard message="이야기를 불러오는 데 잠시 문제가 생겼어요." onRetry={() => loadTopics(selected)} />}
         {!isLoadingTopics && topics.length === 0 && (
-          <section className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-6 text-center shadow-soft">
+          <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center shadow-soft">
             <Sparkles className="mx-auto h-8 w-8 text-[#d85b36]" />
             <h2 className="mt-3 font-black text-[#2f1b12]">아직 추천할 만한 이야기가 많지 않아요.</h2>
             <p className="mt-2 text-sm leading-relaxed text-[#7c6252]">최근에 있었던 이야기를 조금 더 담아보세요.</p>
@@ -182,14 +193,14 @@ export default function CheckInView({ people, initialPersonId, onContactComplete
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-black text-[#2f1b12]">안부를 전해볼까요?</h1>
-          <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-[#7c6252]">가끔은 작은 안부 하나가{"\n"}오래된 관계를 다시 이어주기도 해요.</p>
+          <h1 className="text-[22px] font-black text-[#2f1b12]">안부를 전해볼까요?</h1>
+          <p className="mt-1.5 whitespace-pre-line text-xs leading-relaxed text-[#7c6252]">가끔은 작은 안부 하나가{"\n"}오래된 관계를 다시 이어주기도 해요.</p>
         </div>
         <button className="relative rounded-full p-2 text-[#2f1b12]"><Bell className="h-6 w-6" /><span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[#d85b36]" /></button>
       </header>
 
       <section>
-        <h2 className="mb-3 text-lg font-black text-[#2f1b12]">오늘 안부를 전해볼 사람</h2>
+        <h2 className="mb-2.5 text-[15px] font-black text-[#2f1b12]">오늘 안부를 전해볼 사람</h2>
         <div className="space-y-3">
           {recommended.slice(0, 5).map((person) => (
             <div key={person.id}>
@@ -199,7 +210,7 @@ export default function CheckInView({ people, initialPersonId, onContactComplete
         </div>
       </section>
 
-      <button onClick={() => setStep("picker")} className="w-full rounded-full border border-[#ead8c9] bg-white py-4 font-extrabold text-[#5a392a] shadow-soft">
+      <button onClick={() => setStep("picker")} className="w-full rounded-full border border-[#ead8c9] bg-white py-3 text-sm font-extrabold text-[#5a392a] shadow-soft">
         다른 사람에게 안부 전하기
       </button>
       <PrivacyNotice />
@@ -209,11 +220,11 @@ export default function CheckInView({ people, initialPersonId, onContactComplete
 
 function RecommendedPersonCard({ person, onSelect }: { person: Person; onSelect: (personId: string) => void }) {
   return (
-    <article className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
+    <article className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
       <div className="flex gap-4">
         <Avatar person={person} size="md" />
         <div className="min-w-0 flex-1">
-          <h3 className="text-xl font-black text-[#2f1b12]">{person.name}</h3>
+          <h3 className="text-[18px] font-black text-[#2f1b12]">{person.name}</h3>
           <p className="mt-1 text-sm font-medium text-[#5e473a]">{getRelationLine(person)}</p>
           <p className="mt-2 text-sm font-extrabold text-[#c95735]">마지막 연락 {daysSince(person.lastContactDate)}일 전</p>
         </div>
@@ -226,7 +237,7 @@ function RecommendedPersonCard({ person, onSelect }: { person: Person; onSelect:
 
 function PersonSelectCard({ person, onSelect }: { person: Person; onSelect: (personId: string) => void }) {
   return (
-    <button onClick={() => onSelect(person.id)} className="flex w-full items-center gap-3 rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 text-left shadow-soft">
+    <button onClick={() => onSelect(person.id)} className="flex w-full items-center gap-3 rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3 text-left shadow-soft">
       <Avatar person={person} size="sm" />
       <span className="min-w-0 flex-1">
         <b className="block text-[#2f1b12]">{person.name}</b>
@@ -245,7 +256,7 @@ function ManualTopics({ person, onSelect }: { person: Person; onSelect: (topic: 
   ];
 
   return (
-    <section className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
+    <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
       <h2 className="font-black text-[#2f1b12]">다른 이야기로 시작하기</h2>
       <div className="mt-3 grid grid-cols-1 gap-2">
         {options.map((option) => (
@@ -260,7 +271,7 @@ function ManualTopics({ person, onSelect }: { person: Person; onSelect: (topic: 
 
 function LoadingCard({ text }: { text: string }) {
   return (
-    <div className="rounded-2xl border border-[#ead8c9] bg-[#fff6ee] p-5 text-center">
+    <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
       <Sparkles className="mx-auto h-8 w-8 animate-pulse text-[#d85b36]" />
       <p className="mt-3 font-black text-[#2f1b12]">{text}</p>
     </div>

@@ -19,14 +19,14 @@ export default function HomeView({ people, onOpenPerson, onAddPerson, onStartChe
   const alertCount = people.filter((person) => daysSince(person.lastContactDate) >= (person.remindIntervalDays || 60)).length;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-5">
       <header className="flex items-start justify-between">
         <div>
           <BrandTitle />
-          <p className="mt-1 text-[15px] font-semibold text-[#d85b36]">오늘도 소중한 사람을 기억해볼까요?</p>
+          <p className="mt-0.5 text-[13px] font-semibold text-[#d85b36]">오늘도 소중한 사람을 기억해볼까요?</p>
         </div>
-        <button onClick={() => setNotificationsOpen(true)} className="relative rounded-full p-2 text-[#2f1b12]" aria-label="알림 보기">
-          <Bell className="h-6 w-6" />
+        <button onClick={() => setNotificationsOpen(true)} className="relative rounded-full p-1.5 text-[#2f1b12]" aria-label="알림 보기">
+          <Bell className="h-5 w-5" />
           {alertCount > 0 && <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[#d85b36]" />}
         </button>
       </header>
@@ -48,16 +48,16 @@ function NotificationSheet({ people, onClose, onOpenPerson, onStartCheckIn }: { 
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
-      <section onClick={(event) => event.stopPropagation()} className="mb-3 w-full max-w-md rounded-[28px] bg-[#fffaf3] p-5 shadow-[0_20px_60px_rgba(47,27,18,0.25)]">
+      <section onClick={(event) => event.stopPropagation()} className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
         <header className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-black text-[#2f1b12]">알림</h2>
+            <h2 className="text-[20px] font-black text-[#2f1b12]">알림</h2>
             <p className="mt-1 text-sm text-[#7c6252]">챙겨볼 안부와 함께한 마음을 모았어요.</p>
           </div>
           <button onClick={onClose} className="rounded-full bg-[#fff1e8] p-2 text-[#5a392a]"><X className="h-5 w-5" /></button>
         </header>
 
-        <div className="mt-5 space-y-4">
+        <div className="mt-4 space-y-3">
           <section>
             <h3 className="mb-2 flex items-center gap-2 text-sm font-black text-[#2f1b12]"><HeartHandshake className="h-4 w-4 text-[#d85b36]" /> 안부가 필요한 사람</h3>
             {overdue.length === 0 ? <p className="rounded-2xl bg-white/70 p-4 text-sm text-[#7c6252]">지금은 새 알림이 없어요.</p> : overdue.map((person) => (

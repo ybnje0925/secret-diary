@@ -17,21 +17,21 @@ export default function EventHistorySection({ person, onSaveEvent, onDeleteEvent
 
   return (
     <section className="space-y-3">
-      <button onClick={() => setEditing("new")} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#d85b36] py-4 font-extrabold text-white">
-        <Plus className="h-5 w-5" /> 함께한 마음 기록하기
+      <button onClick={() => setEditing("new")} className="flex w-full items-center justify-center gap-2 rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white">
+        <Plus className="h-4 w-4" /> 함께한 마음 기록하기
       </button>
       {person.eventsHistory.length === 0 ? (
-        <p className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-6 text-center text-sm text-[#7c6252]">아직 함께한 마음 기록이 없어요.</p>
+        <p className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center text-xs text-[#7c6252]">아직 함께한 마음 기록이 없어요.</p>
       ) : (
         person.eventsHistory.map((event) => (
-          <article key={event.id} className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
+          <article key={event.id} className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3 shadow-soft">
             <div className="flex items-start justify-between gap-3">
               <div className="flex gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[#fff1e8] text-[#d85b36]"><Gift className="h-5 w-5" /></span>
                 <div>
-                  <p className="font-extrabold text-[#2f1b12]">{event.amountOrGift || event.type}</p>
-                  <p className="mt-1 text-sm text-[#7c6252]">{formatDateKo(event.date)} · {event.type}</p>
-                  {event.note && <p className="mt-2 text-sm leading-relaxed text-[#3f2a20]">{event.note}</p>}
+                  <p className="text-[14px] font-extrabold text-[#2f1b12]">{event.amountOrGift || event.type}</p>
+                  <p className="mt-0.5 text-xs text-[#7c6252]">{formatDateKo(event.date)} · {event.type}</p>
+                  {event.note && <p className="mt-1.5 text-xs leading-relaxed text-[#3f2a20]">{event.note}</p>}
                 </div>
               </div>
               <div className="relative">
@@ -77,9 +77,9 @@ function EventEditor({ event, onClose, onSave }: { event: EventHistoryItem | nul
           onSave({ id: event?.id || `e_${Date.now()}`, date, type, amountOrGift: amountOrGift.trim(), note: note.trim() });
         }}
         onClick={(formEvent) => formEvent.stopPropagation()}
-        className="mb-3 w-full max-w-md rounded-[28px] bg-[#fffaf3] p-5 shadow-[0_20px_60px_rgba(47,27,18,0.25)]"
+        className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
       >
-        <h2 className="text-xl font-black text-[#2f1b12]">{event ? "함께한 마음 수정" : "함께한 마음 기록"}</h2>
+        <h2 className="text-[20px] font-black text-[#2f1b12]">{event ? "함께한 마음 수정" : "함께한 마음 기록"}</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <input type="date" value={date} onChange={(inputEvent) => setDate(inputEvent.target.value)} className="saram-input py-3 text-sm" />
           <select value={type} onChange={(inputEvent) => setType(inputEvent.target.value as EventType)} className="saram-input py-3 text-sm">

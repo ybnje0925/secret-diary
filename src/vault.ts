@@ -117,6 +117,16 @@ export async function createVault(pin: string, initialData: VaultData): Promise<
   return key;
 }
 
+export async function changeVaultPin(currentPin: string, nextPin: string): Promise<{ key: CryptoKey; data: VaultData }> {
+  const { data } = await unlockVault(currentPin);
+  const nextSalt = generateSalt();
+  const nextKey = await deriveKey(nextPin, nextSalt);
+  const nextPayload = await encryptText(nextKey, JSON.stringify(data));
+  localStorage.setItem(SALT_KEY, toBase64(nextSalt));
+  localStorage.setItem(VAULT_KEY, nextPayload);
+  return { key: nextKey, data };
+}
+
 // Returns the derived key + decrypted (schema-migrated) data, or throws if
 // the PIN is wrong.
 export async function unlockVault(pin: string): Promise<{ key: CryptoKey; data: VaultData }> {

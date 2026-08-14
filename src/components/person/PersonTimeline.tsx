@@ -16,18 +16,18 @@ export default function PersonTimeline({ person, onUpdateHistory, onDeleteHistor
   const [editing, setEditing] = useState<InteractionHistory | null>(null);
 
   if (!person.history.length) {
-    return <p className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-6 text-center text-sm text-[#7c6252]">아직 최근 이야기가 없어요.</p>;
+    return <p className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center text-xs text-[#7c6252]">아직 최근 이야기가 없어요.</p>;
   }
 
   return (
     <>
-      <div className="space-y-5 border-l-2 border-[#e4c7b6] pl-5">
+      <div className="space-y-4 border-l-2 border-[#e4c7b6] pl-4">
         {person.history.map((item) => (
           <article key={item.id} className="relative">
-            <span className="absolute -left-[27px] top-2 h-3 w-3 rounded-full bg-[#d85b36] ring-4 ring-[#fff8ef]" />
-            <div className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
+            <span className="absolute -left-[22px] top-2 h-2.5 w-2.5 rounded-full bg-[#d85b36] ring-4 ring-[#fff8ef]" />
+            <div className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3 shadow-soft">
               <div className="flex items-start justify-between gap-3">
-                <h3 className="font-extrabold text-[#2f1b12]">{formatDateKo(item.date)} · {item.medium}</h3>
+                <h3 className="text-[13px] font-extrabold text-[#2f1b12]">{formatDateKo(item.date)} · {item.medium}</h3>
                 <div className="relative">
                   <button onClick={() => setMenuId(menuId === item.id ? null : item.id)} className="rounded-full p-1 text-[#8d5b45]">
                     <MoreHorizontal className="h-5 w-5" />
@@ -40,7 +40,7 @@ export default function PersonTimeline({ person, onUpdateHistory, onDeleteHistor
                   )}
                 </div>
               </div>
-              <p className="mt-3 whitespace-pre-line text-[15px] leading-relaxed text-[#3f2a20]">{item.summary}</p>
+              <p className="mt-2 whitespace-pre-line text-[13px] leading-relaxed text-[#3f2a20]">{item.summary}</p>
             </div>
           </article>
         ))}
@@ -73,9 +73,9 @@ function HistoryEditor({ history, onClose, onSave }: { history: InteractionHisto
           onSave({ ...history, date, medium, summary: summary.trim() });
         }}
         onClick={(event) => event.stopPropagation()}
-        className="mb-3 w-full max-w-md rounded-[28px] bg-[#fffaf3] p-5 shadow-[0_20px_60px_rgba(47,27,18,0.25)]"
+        className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
       >
-        <h2 className="text-xl font-black text-[#2f1b12]">기록 수정</h2>
+        <h2 className="text-[20px] font-black text-[#2f1b12]">기록 수정</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <input type="date" value={date} onChange={(event) => setDate(event.target.value)} className="saram-input py-3 text-sm" />
           <select value={medium} onChange={(event) => setMedium(event.target.value as ContactMedium)} className="saram-input py-3 text-sm">
