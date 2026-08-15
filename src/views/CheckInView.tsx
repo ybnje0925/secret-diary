@@ -122,12 +122,12 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
       <div className="space-y-5">
         <button onClick={() => setStep("main")} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
         <section>
-          <h1 className="text-[22px] font-black text-[#2f1b12]">누구에게 안부를 전할까요?</h1>
-          <p className="mt-2 text-sm leading-relaxed text-[#7c6252]">연락 주기와 상관없이 원하는 사람을 선택할 수 있어요.</p>
+          <h1 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">누구에게 안부를 전할까요?</h1>
+          <p className="mt-2 text-[13px] leading-[1.6] text-[#7c6252]">연락 주기와 상관없이 원하는 사람을 선택할 수 있어요.</p>
         </section>
         <label className="relative block">
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8f7564]" />
-          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="이름, 관계, 그룹 검색" className="h-11 w-full rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] pl-10 pr-3 text-[13px] text-[#2f1b12] outline-none focus:border-[#d85b36]" />
+          <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="이름, 관계, 그룹 검색" className="h-11 w-full rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] pl-10 pr-3 text-[16px] text-[#2f1b12] outline-none focus:border-[#d85b36]" />
         </label>
         <div className="space-y-3">
           {searchedPeople.map((person) => (
@@ -145,17 +145,17 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
       <div className="space-y-5">
         <button onClick={() => setStep("main")} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
         <section>
-          <p className="text-sm font-extrabold text-[#d85b36]">{selected.name}에게</p>
-          <h1 className="mt-1 text-[22px] font-black text-[#2f1b12]">무슨 이야기를 해볼까요?</h1>
-          <p className="mt-1.5 whitespace-pre-line text-xs leading-relaxed text-[#7c6252]">함께 나눴던 이야기에서{"\n"}자연스럽게 꺼낼 만한 주제를 찾아봤어요.</p>
+          <p className="text-sm font-semibold text-[#d85b36]">{selected.name}에게</p>
+          <h1 className="mt-1 text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">무슨 이야기를 해볼까요?</h1>
+          <p className="mt-1.5 whitespace-pre-line text-[13px] leading-[1.6] text-[#7c6252]">함께 나눴던 이야기에서{"\n"}자연스럽게 꺼낼 만한 주제를 찾아봤어요.</p>
         </section>
         {isLoadingTopics && <LoadingCard text={`${selected.name}와 나눴던 이야기를 살펴보고 있어요 🌿`} />}
         {topicError && <ErrorCard message="이야기를 불러오는 데 잠시 문제가 생겼어요." onRetry={() => loadTopics(selected)} />}
         {!isLoadingTopics && topics.length === 0 && (
           <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center shadow-soft">
             <Sparkles className="mx-auto h-8 w-8 text-[#d85b36]" />
-            <h2 className="mt-3 font-black text-[#2f1b12]">아직 추천할 만한 이야기가 많지 않아요.</h2>
-            <p className="mt-2 text-sm leading-relaxed text-[#7c6252]">최근에 있었던 이야기를 조금 더 담아보세요.</p>
+            <h2 className="mt-3 text-[17px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">아직 추천할 만한 이야기가 많지 않아요.</h2>
+            <p className="mt-2 text-sm leading-[1.6] text-[#7c6252]">최근에 있었던 이야기를 조금 더 담아보세요.</p>
           </section>
         )}
         <div className="space-y-3">
@@ -193,14 +193,14 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
     <div className="space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-[22px] font-black text-[#2f1b12]">안부를 전해볼까요?</h1>
-          <p className="mt-1.5 whitespace-pre-line text-xs leading-relaxed text-[#7c6252]">가끔은 작은 안부 하나가{"\n"}오래된 관계를 다시 이어주기도 해요.</p>
+          <h1 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">안부를 전해볼까요?</h1>
+          <p className="mt-1.5 whitespace-pre-line text-[13px] leading-[1.6] text-[#7c6252]">가끔은 작은 안부 하나가{"\n"}오래된 관계를 다시 이어주기도 해요.</p>
         </div>
         <button className="relative rounded-full p-2 text-[#2f1b12]"><Bell className="h-6 w-6" /><span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[#d85b36]" /></button>
       </header>
 
       <section>
-        <h2 className="mb-2.5 text-[15px] font-black text-[#2f1b12]">오늘 안부를 전해볼 사람</h2>
+        <h2 className="mb-2.5 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">오늘 안부를 전해볼 사람</h2>
         <div className="space-y-3">
           {recommended.slice(0, 5).map((person) => (
             <div key={person.id}>
@@ -210,7 +210,7 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
         </div>
       </section>
 
-      <button onClick={() => setStep("picker")} className="w-full rounded-full border border-[#ead8c9] bg-white py-3 text-sm font-extrabold text-[#5a392a] shadow-soft">
+      <button onClick={() => setStep("picker")} className="w-full rounded-full border border-[#ead8c9] bg-white py-3 text-sm font-medium text-[#5a392a] shadow-soft">
         다른 사람에게 안부 전하기
       </button>
       <PrivacyNotice />
@@ -224,13 +224,13 @@ function RecommendedPersonCard({ person, onSelect }: { person: Person; onSelect:
       <div className="flex gap-4">
         <Avatar person={person} size="md" />
         <div className="min-w-0 flex-1">
-          <h3 className="text-[18px] font-black text-[#2f1b12]">{person.name}</h3>
+          <h3 className="text-[17px] font-semibold leading-[1.4] tracking-[-0.015em] text-[#2f1b12]">{person.name}</h3>
           <p className="mt-1 text-sm font-medium text-[#5e473a]">{getRelationLine(person)}</p>
-          <p className="mt-2 text-sm font-extrabold text-[#c95735]">마지막 연락 {daysSince(person.lastContactDate)}일 전</p>
+          <p className="mt-2 text-sm font-medium text-[#c95735]">마지막 연락 {daysSince(person.lastContactDate)}일 전</p>
         </div>
       </div>
       <blockquote className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-sm leading-relaxed text-[#5a392a]">“{getRecentMemory(person).split("\n")[0]}”</blockquote>
-      <button onClick={() => onSelect(person.id)} className="mt-4 w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white">이야기로 안부 시작하기</button>
+      <button onClick={() => onSelect(person.id)} className="mt-4 w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white">이야기로 안부 시작하기</button>
     </article>
   );
 }
@@ -240,10 +240,10 @@ function PersonSelectCard({ person, onSelect }: { person: Person; onSelect: (per
     <button onClick={() => onSelect(person.id)} className="flex w-full items-center gap-3 rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3 text-left shadow-soft">
       <Avatar person={person} size="sm" />
       <span className="min-w-0 flex-1">
-        <b className="block text-[#2f1b12]">{person.name}</b>
+        <b className="block font-semibold text-[#2f1b12]">{person.name}</b>
         <small className="block text-[#7c6252]">{getRelationLine(person)}</small>
       </span>
-      <span className="text-xs font-bold text-[#c95735]">{daysSince(person.lastContactDate)}일 전</span>
+      <span className="text-xs font-medium text-[#c95735]">{daysSince(person.lastContactDate)}일 전</span>
     </button>
   );
 }
@@ -257,10 +257,10 @@ function ManualTopics({ person, onSelect }: { person: Person; onSelect: (topic: 
 
   return (
     <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
-      <h2 className="font-black text-[#2f1b12]">다른 이야기로 시작하기</h2>
+      <h2 className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">다른 이야기로 시작하기</h2>
       <div className="mt-3 grid grid-cols-1 gap-2">
         {options.map((option) => (
-          <button key={option.id} onClick={() => onSelect({ ...option, sensitivity: detectSensitivity(option.reason), label: undefined } as ConversationTopic)} className="rounded-xl bg-white px-3 py-2 text-left text-sm font-bold text-[#5a392a]">
+          <button key={option.id} onClick={() => onSelect({ ...option, sensitivity: detectSensitivity(option.reason), label: undefined } as ConversationTopic)} className="rounded-xl bg-white px-3 py-2 text-left text-sm font-medium text-[#5a392a]">
             {option.icon} {option.topic}
           </button>
         ))}
@@ -273,7 +273,7 @@ function LoadingCard({ text }: { text: string }) {
   return (
     <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
       <Sparkles className="mx-auto h-8 w-8 animate-pulse text-[#d85b36]" />
-      <p className="mt-3 font-black text-[#2f1b12]">{text}</p>
+      <p className="mt-3 font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">{text}</p>
     </div>
   );
 }
@@ -281,8 +281,8 @@ function LoadingCard({ text }: { text: string }) {
 function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="rounded-2xl border border-[#ead8c9] bg-[#fff1e8] p-4">
-      <p className="flex gap-2 font-bold text-[#c95735]"><AlertCircle className="h-5 w-5 shrink-0" />{message}</p>
-      <button onClick={onRetry} className="mt-3 rounded-full bg-white px-4 py-2 text-sm font-extrabold text-[#c95735]">다시 시도</button>
+      <p className="flex gap-2 font-medium text-[#c95735]"><AlertCircle className="h-5 w-5 shrink-0" />{message}</p>
+      <button onClick={onRetry} className="mt-3 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#c95735]">다시 시도</button>
     </div>
   );
 }

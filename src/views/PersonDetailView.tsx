@@ -53,10 +53,10 @@ export default function PersonDetailView({
             </button>
             {menuOpen && (
               <div className="absolute right-0 top-11 z-20 w-40 overflow-hidden rounded-2xl border border-[#ead8c9] bg-white shadow-soft">
-                <button onClick={() => { setMenuOpen(false); onEdit(); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-[#2f1b12]">
+                <button onClick={() => { setMenuOpen(false); onEdit(); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-[#2f1b12]">
                   <Edit3 className="h-4 w-4" /> 사람 정보 수정
                 </button>
-                <button onClick={() => { setMenuOpen(false); onDeletePerson(); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-bold text-[#c95735]">
+                <button onClick={() => { setMenuOpen(false); onDeletePerson(); }} className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium text-[#c95735]">
                   <Trash2 className="h-4 w-4" /> 사람 삭제
                 </button>
               </div>
@@ -69,16 +69,16 @@ export default function PersonDetailView({
         <div className="flex justify-center">
           <Avatar person={person} size="lg" />
         </div>
-        <h1 className="mt-2 text-[22px] font-black text-[#2f1b12]">{person.name}</h1>
+        <h1 className="mt-2 text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{person.name}</h1>
         <p className="mt-0.5 text-[13px] font-medium text-[#5e473a]">{getRelationLine(person)}</p>
         {person.phone && (
-          <a href={`tel:${person.phone}`} className="mt-2 inline-flex items-center gap-1 rounded-full border border-[#ead8c9] bg-white px-3 py-1.5 text-xs font-bold text-[#5a392a]">
+          <a href={`tel:${person.phone}`} className="mt-2 inline-flex items-center gap-1 rounded-full border border-[#ead8c9] bg-white px-3 py-1.5 text-xs font-medium text-[#5a392a]">
             <Phone className="h-4 w-4" /> 연락처
           </a>
         )}
       </section>
 
-      <div className="flex items-center justify-between rounded-full bg-[#fff5ed] px-3 py-2 text-xs font-bold text-[#5a392a]">
+      <div className="flex items-center justify-between rounded-full bg-[#fff5ed] px-3 py-2 text-xs font-medium text-[#5a392a]">
         <span className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4" /> 마지막 연락 {daysSince(person.lastContactDate)}일 전 · {person.lastContactMedium}
         </span>
@@ -91,29 +91,29 @@ export default function PersonDetailView({
 
       {person.history.length === 0 && !person.preferences.notes && (
         <section className="rounded-[18px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center shadow-soft">
-          <h2 className="text-[18px] font-black text-[#2f1b12]">아직 담긴 이야기가 많지 않아요.</h2>
-          <p className="mt-2 text-sm leading-relaxed text-[#7c6252]">
+          <h2 className="text-[18px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">아직 담긴 이야기가 많지 않아요.</h2>
+          <p className="mt-2 text-sm leading-[1.6] text-[#7c6252]">
             {person.name}님과 다음에 이야기를 나눈 뒤 작은 기억부터 하나씩 담아보세요.
           </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <button onClick={onStartStory} className="rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white">첫 이야기 담기</button>
-            <button onClick={onEdit} className="rounded-full border border-[#dfa98f] bg-white py-3 text-sm font-extrabold text-[#c95735]">정보 조금 더 추가하기</button>
+            <button onClick={onStartStory} className="rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white">첫 이야기 담기</button>
+            <button onClick={onEdit} className="rounded-full border border-[#dfa98f] bg-white py-3 text-sm font-medium text-[#c95735]">정보 조금 더 추가하기</button>
           </div>
         </section>
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <button onClick={onStartStory} className="rounded-full bg-[#d85b36] py-3 text-xs font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.16)]">
+        <button onClick={onStartStory} className="rounded-full bg-[#d85b36] py-3 text-xs font-semibold text-white shadow-[0_8px_18px_rgba(216,91,54,0.16)]">
           <Plus className="mr-1 inline h-4 w-4" /> 이야기 담기
         </button>
-        <button onClick={onStartCheckIn} className="rounded-full border border-[#dfa98f] bg-white py-3 text-xs font-extrabold text-[#c95735]">
+        <button onClick={onStartCheckIn} className="rounded-full border border-[#dfa98f] bg-white py-3 text-xs font-semibold text-[#c95735]">
           <HeartHandshake className="mr-1 inline h-4 w-4" /> 안부 시작하기
         </button>
       </div>
 
       <div className="flex gap-5 overflow-x-auto border-b border-[#ead8c9]">
         {tabs.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`shrink-0 pb-2.5 text-xs font-extrabold ${activeTab === tab ? "border-b-2 border-[#d85b36] text-[#d85b36]" : "text-[#2f1b12]"}`}>
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`shrink-0 pb-2.5 text-xs font-semibold ${activeTab === tab ? "border-b-2 border-[#d85b36] text-[#d85b36]" : "text-[#2f1b12]"}`}>
             {tab}
           </button>
         ))}

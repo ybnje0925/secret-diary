@@ -164,8 +164,8 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
         <div className="mx-auto mb-4 h-1 w-16 rounded-full bg-[#cdb7a7]" />
         <div className="mb-5 flex items-start justify-between">
           <div>
-            <h2 className="text-[22px] font-black leading-tight text-[#2f1b12]">오늘 어떤 이야기를<br />담아볼까요?</h2>
-            {person && <p className="mt-2 text-sm font-bold text-[#d85b36]">{person.name} <span className="font-medium text-[#8d5b45]">{getRelationLine(person)}</span></p>}
+            <h2 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">오늘 어떤 이야기를<br />담아볼까요?</h2>
+            {person && <p className="mt-2 text-sm font-semibold text-[#d85b36]">{person.name} <span className="font-medium text-[#8d5b45]">{getRelationLine(person)}</span></p>}
           </div>
           <button onClick={onClose} className="rounded-full bg-[#f6eadf] p-2 text-[#2f1b12]">
             <X className="h-5 w-5" />
@@ -184,7 +184,7 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
                 <button key={item.id} onClick={() => { setSelectedPersonId(item.id); setStep("method"); }} className="flex w-full items-center gap-3 rounded-2xl border border-[#ead8c9] bg-white/70 p-3 text-left">
                   <Avatar person={item} size="sm" />
                   <span className="min-w-0 flex-1">
-                    <b className="block text-[#2f1b12]">{item.name}</b>
+                    <b className="block font-semibold text-[#2f1b12]">{item.name}</b>
                     <small className="block text-[#7c6252]">{getRelationLine(item)}</small>
                   </span>
                   <ChevronRight className="h-5 w-5 text-[#8d5b45]" />
@@ -208,11 +208,11 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
             <RecordBasics date={date} medium={medium} onDateChange={setDate} onMediumChange={setMedium} />
             {method === "voice" && (
               <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
-                <p className="font-extrabold text-[#2f1b12]">{isListening ? `${person.name}와 있었던 이야기를 듣고 있어요.` : "말로 남긴 내용은 텍스트만 사용해요."}</p>
+                <p className="font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">{isListening ? `${person.name}와 있었던 이야기를 듣고 있어요.` : "말로 남긴 내용은 텍스트만 사용해요."}</p>
                 <div className={`mx-auto my-5 flex h-24 w-24 items-center justify-center rounded-full ${isListening ? "animate-pulse bg-[#d85b36] text-white" : "bg-[#f7d8c7] text-[#d85b36]"}`}>
                   <Mic className="h-10 w-10" />
                 </div>
-                <button onClick={isListening ? () => recognitionRef.current?.stop() : startListening} className="rounded-full bg-[#d85b36] px-5 py-3 font-extrabold text-white">
+                <button onClick={isListening ? () => recognitionRef.current?.stop() : startListening} className="rounded-full bg-[#d85b36] px-5 py-3 font-semibold text-white">
                   {isListening ? <><Square className="mr-2 inline h-4 w-4" />멈추기</> : "음성 시작"}
                 </button>
               </div>
@@ -227,23 +227,23 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
               onChange={(event) => setText(event.target.value)}
               maxLength={maxTextLength + 1}
               placeholder={method === "paste" ? "대화 내용을 붙여넣어 주세요." : "기억하고 싶은 이야기나 요약을 적어주세요."}
-              className="saram-input min-h-40 resize-none text-sm leading-relaxed"
+              className="saram-input min-h-40 resize-none text-[15px] leading-[1.65]"
             />
-            <p className={`text-right text-xs font-bold ${text.length > maxTextLength ? "text-[#c95735]" : "text-[#8f7564]"}`}>{text.length.toLocaleString()} / {maxTextLength.toLocaleString()}</p>
-            {error && <p className="flex gap-2 rounded-2xl bg-[#fff1e8] p-3 text-sm font-bold text-[#c95735]"><AlertCircle className="h-5 w-5 shrink-0" />{error}</p>}
+            <p className={`text-right text-xs font-medium ${text.length > maxTextLength ? "text-[#c95735]" : "text-[#8f7564]"}`}>{text.length.toLocaleString()} / {maxTextLength.toLocaleString()}</p>
+            {error && <p className="flex gap-2 rounded-2xl bg-[#fff1e8] p-3 text-sm font-medium text-[#c95735]"><AlertCircle className="h-5 w-5 shrink-0" />{error}</p>}
             {isAnalyzing && <AnalyzingState />}
             <div className="space-y-2">
               {method !== "direct" && (
-                <button onClick={analyzeText} disabled={isAnalyzing || !text.trim() || text.length > maxTextLength} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white disabled:opacity-40">
+                <button onClick={analyzeText} disabled={isAnalyzing || !text.trim() || text.length > maxTextLength} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white disabled:opacity-40">
                   {method === "voice" ? "AI로 정리하기" : "이야기 정리하기"}
                 </button>
               )}
               {method === "direct" && (
-                <button onClick={analyzeText} disabled={isAnalyzing || !text.trim() || text.length > maxTextLength} className="w-full rounded-full border border-[#dfa98f] bg-white py-3 font-extrabold text-[#c95735] disabled:opacity-40">
+                <button onClick={analyzeText} disabled={isAnalyzing || !text.trim() || text.length > maxTextLength} className="w-full rounded-full border border-[#dfa98f] bg-white py-3 font-medium text-[#c95735] disabled:opacity-40">
                   이 내용을 AI로 정리하기
                 </button>
               )}
-              <button onClick={buildReviewFromPlainText} disabled={!text.trim()} className="w-full rounded-full border border-[#ead8c9] bg-white py-3 font-extrabold text-[#5a392a] disabled:opacity-40">
+              <button onClick={buildReviewFromPlainText} disabled={!text.trim()} className="w-full rounded-full border border-[#ead8c9] bg-white py-3 font-medium text-[#5a392a] disabled:opacity-40">
                 그대로 기록하기
               </button>
             </div>
@@ -253,27 +253,27 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
 
         {step === "review" && (
           <div className="space-y-5">
-            <h3 className="text-[20px] font-black text-[#2f1b12]">이런 이야기를 발견했어요</h3>
+            <h3 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">이런 이야기를 발견했어요</h3>
             <RecordBasics date={date} medium={medium} onDateChange={setDate} onMediumChange={setMedium} />
             <label>
-              <span className="mb-2 block text-sm font-extrabold text-[#2f1b12]">오늘 이야기 요약</span>
-              <textarea value={summary} onChange={(event) => setSummary(event.target.value)} className="saram-input min-h-32 resize-none text-sm leading-relaxed" />
+              <span className="mb-2 block text-sm font-semibold text-[#2f1b12]">오늘 이야기 요약</span>
+              <textarea value={summary} onChange={(event) => setSummary(event.target.value)} className="saram-input min-h-32 resize-none text-[15px] leading-[1.65]" />
             </label>
             {items.length > 0 && (
               <div className="space-y-3">
                 {items.map((item, index) => (
                   <article key={item.id} className="rounded-2xl border border-[#ead8c9] bg-white/70 p-4">
-                    <label className="mb-3 flex items-center gap-2 font-extrabold text-[#2f1b12]">
+                    <label className="mb-3 flex items-center gap-2 font-semibold text-[#2f1b12]">
                       <input type="checkbox" checked={item.selected} onChange={(event) => updateItem(index, { selected: event.target.checked }, setItems)} className="h-5 w-5 accent-[#d85b36]" />
                       {item.label}
                     </label>
-                    <textarea value={item.text} onChange={(event) => updateItem(index, { text: event.target.value }, setItems)} className="saram-input min-h-20 resize-none text-sm leading-relaxed" />
+                    <textarea value={item.text} onChange={(event) => updateItem(index, { text: event.target.value }, setItems)} className="saram-input min-h-20 resize-none text-[15px] leading-[1.65]" />
                   </article>
                 ))}
               </div>
             )}
             <PrivacyNotice />
-            <button onClick={saveApproved} disabled={!summary.trim()} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-black text-white disabled:opacity-40">
+            <button onClick={saveApproved} disabled={!summary.trim()} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white disabled:opacity-40">
               선택한 이야기 사람談에 담기
             </button>
           </div>
@@ -282,7 +282,7 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
         {step === "done" && (
           <div className="py-10 text-center">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-[#eaf0dc] text-4xl">🌿</div>
-            <h3 className="text-[22px] font-black text-[#2f1b12]">이야기를 잘 담아두었어요</h3>
+            <h3 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">이야기를 잘 담아두었어요</h3>
             <p className="mt-2 text-sm text-[#7c6252]">그 사람 상세화면으로 돌아갑니다.</p>
           </div>
         )}
@@ -304,11 +304,11 @@ function RecordBasics({ date, medium, onDateChange, onMediumChange }: { date: st
   return (
     <div className="grid grid-cols-1 gap-3">
       <label className="min-w-0">
-        <span className="mb-1 block text-xs font-extrabold text-[#5a392a]">날짜</span>
+        <span className="mb-1 block text-xs font-medium text-[#5a392a]">날짜</span>
         <input type="date" value={date} onChange={(event) => onDateChange(event.target.value)} className="saram-input w-full min-w-0 py-3 text-sm" />
       </label>
       <label className="min-w-0">
-        <span className="mb-1 block text-xs font-extrabold text-[#5a392a]">연락 방식</span>
+        <span className="mb-1 block text-xs font-medium text-[#5a392a]">연락 방식</span>
         <select value={medium} onChange={(event) => onMediumChange(event.target.value as ContactMedium)} className="saram-input w-full min-w-0 py-3 text-sm">
           {mediumOptions.map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
@@ -321,7 +321,7 @@ function AnalyzingState() {
   return (
     <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
       <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#d85b36]" />
-      <h3 className="mt-3 font-black text-[#2f1b12]">사람談이 이야기 속 기억을 정리하고 있어요 🌿</h3>
+      <h3 className="mt-3 font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">사람談이 이야기 속 기억을 정리하고 있어요 🌿</h3>
       <p className="mt-1 text-sm text-[#7c6252]">가족 이야기, 관심사, 약속, 최근 근황을 살펴보고 있어요.</p>
     </div>
   );

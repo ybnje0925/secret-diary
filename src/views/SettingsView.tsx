@@ -155,8 +155,8 @@ export default function SettingsView({
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-[22px] font-black text-[#2f1b12]">설정</h1>
-        <p className="text-xs leading-relaxed text-[#7c6252]">사람談을 안전하게 쓰기 위한 기본 설정이에요.</p>
+        <h1 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">설정</h1>
+        <p className="text-[13px] leading-[1.6] text-[#7c6252]">사람談을 안전하게 쓰기 위한 기본 설정이에요.</p>
       </header>
 
       <Section title="보안">
@@ -166,7 +166,7 @@ export default function SettingsView({
           <select
             value={appSettings.autoLockMinutes}
             onChange={(event) => onSettingsChange({ autoLockMinutes: event.target.value as AppSettings["autoLockMinutes"] })}
-            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-bold text-[#5a392a] outline-none"
+            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-medium text-[#5a392a] outline-none"
           >
             <option value="off">사용 안 함</option>
             <option value="1">1분</option>
@@ -189,7 +189,7 @@ export default function SettingsView({
           <button
             type="button"
             onClick={() => onSettingsChange({ aiEnabled: !appSettings.aiEnabled })}
-            className={`rounded-full px-3 py-1.5 text-xs font-extrabold ${appSettings.aiEnabled ? "bg-[#d85b36] text-white" : "bg-[#f4e8dc] text-[#7c6252]"}`}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium ${appSettings.aiEnabled ? "bg-[#d85b36] text-white" : "bg-[#f4e8dc] text-[#7c6252]"}`}
           >
             {appSettings.aiEnabled ? "사용 중" : "꺼짐"}
           </button>
@@ -214,7 +214,7 @@ export default function SettingsView({
           <select
             value={appSettings.defaultRemindIntervalDays}
             onChange={(event) => onSettingsChange({ defaultRemindIntervalDays: Number(event.target.value) as AppSettings["defaultRemindIntervalDays"] })}
-            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-bold text-[#5a392a] outline-none"
+            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-medium text-[#5a392a] outline-none"
           >
             <option value={30}>30일</option>
             <option value={60}>60일</option>
@@ -230,7 +230,7 @@ export default function SettingsView({
       </Section>
 
       <section className="pt-1">
-        <h2 className="mb-2 text-[15px] font-extrabold text-[#b53c2f]">데이터 초기화</h2>
+        <h2 className="mb-2 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#b53c2f]">데이터 초기화</h2>
         <div className="overflow-hidden rounded-[16px] border border-[#f0c7bd] bg-[#fff7f3] shadow-soft">
           <SettingButton icon={<Trash2 />} label="모든 데이터 삭제" value="되돌릴 수 없음" danger onClick={handleClearAll} />
         </div>
@@ -278,7 +278,7 @@ export default function SettingsView({
       )}
 
       {toast && (
-        <div className="fixed left-1/2 top-5 z-[70] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-extrabold text-[#5a392a] shadow-soft">
+        <div className="fixed left-1/2 top-5 z-[70] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-semibold text-[#5a392a] shadow-soft">
           {toast}
         </div>
       )}
@@ -289,7 +289,7 @@ export default function SettingsView({
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h2 className="mb-2 text-[15px] font-extrabold text-[#2f1b12]">{title}</h2>
+      <h2 className="mb-2 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">{title}</h2>
       <div className="overflow-hidden rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] shadow-soft">{children}</div>
     </section>
   );
@@ -311,7 +311,7 @@ function SettingButton({
   return (
     <button onClick={onClick} className="flex min-h-11 w-full items-center gap-2.5 border-b border-[#f0dfd1] px-3.5 py-3 text-left last:border-b-0">
       <IconSlot danger={danger}>{icon}</IconSlot>
-      <span className={`flex-1 text-[13px] font-bold ${danger ? "text-[#b53c2f]" : "text-[#2f1b12]"}`}>{label}</span>
+      <span className={`flex-1 text-[13px] font-medium ${danger ? "text-[#b53c2f]" : "text-[#2f1b12]"}`}>{label}</span>
       {value && <span className="max-w-[45%] truncate text-xs text-[#8f7564]">{value}</span>}
       {onClick && <ChevronRight className="h-4 w-4 text-[#8f7564]" />}
     </button>
@@ -322,7 +322,7 @@ function SettingControl({ icon, label, children }: { icon?: ReactNode; label: st
   return (
     <div className="flex min-h-11 w-full items-center gap-2.5 border-b border-[#f0dfd1] px-3.5 py-3 last:border-b-0">
       <IconSlot>{icon}</IconSlot>
-      <span className="flex-1 text-[13px] font-bold text-[#2f1b12]">{label}</span>
+      <span className="flex-1 text-[13px] font-medium text-[#2f1b12]">{label}</span>
       {children}
     </div>
   );
@@ -354,8 +354,8 @@ function IconSlot({ children, danger }: { children?: ReactNode; danger?: boolean
 function InfoBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="rounded-[16px] bg-[#fff6ee] p-3">
-      <h3 className="text-sm font-black text-[#2f1b12]">{title}</h3>
-      <p className="mt-1 text-xs leading-relaxed text-[#7c6252]">{children}</p>
+      <h3 className="text-sm font-semibold text-[#2f1b12]">{title}</h3>
+      <p className="mt-1 text-[13px] leading-[1.6] text-[#7c6252]">{children}</p>
     </section>
   );
 }
@@ -395,8 +395,8 @@ function PinChangeModal({ onClose, onChanged }: { onClose: () => void; onChanged
         <PinInput label="현재 PIN" value={currentPin} onChange={setCurrentPin} autoFocus />
         <PinInput label="새 PIN" value={nextPin} onChange={setNextPin} />
         <PinInput label="새 PIN 확인" value={confirmPin} onChange={setConfirmPin} />
-        {error && <p className="rounded-xl bg-[#fff2e7] px-4 py-3 text-sm font-bold text-[#b53c2f]">{error}</p>}
-        <button disabled={isSaving} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white disabled:opacity-50">
+        {error && <p className="rounded-xl bg-[#fff2e7] px-4 py-3 text-sm font-medium text-[#b53c2f]">{error}</p>}
+        <button disabled={isSaving} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white disabled:opacity-50">
           {isSaving ? "변경 중..." : "변경사항 저장"}
         </button>
       </form>
@@ -422,8 +422,8 @@ function RestorePinModal({
       <form onSubmit={onSubmit} className="space-y-3">
         <p className="text-sm leading-relaxed text-[#7c6252]">이 백업을 만들 때 사용한 PIN을 입력해주세요.</p>
         <PinInput label="백업 PIN" value={pin} onChange={onPinChange} autoFocus />
-        {error && <p className="rounded-xl bg-[#fff2e7] px-4 py-3 text-sm font-bold text-[#b53c2f]">{error}</p>}
-        <button disabled={pin.length !== 4} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white disabled:opacity-50">
+        {error && <p className="rounded-xl bg-[#fff2e7] px-4 py-3 text-sm font-medium text-[#b53c2f]">{error}</p>}
+        <button disabled={pin.length !== 4} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white disabled:opacity-50">
           복원하기
         </button>
       </form>
@@ -436,7 +436,7 @@ function ModalShell({ title, children, onClose }: { title: string; children: Rea
     <div className="fixed inset-0 z-[80] flex items-end bg-black/30 px-4 pb-4 sm:items-center sm:justify-center">
       <section className="w-full max-w-sm rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.16)]">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-[20px] font-black text-[#2f1b12]">{title}</h2>
+          <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{title}</h2>
           <button onClick={onClose} className="rounded-full bg-[#f4e8dc] p-2 text-[#5a392a]">
             <X className="h-5 w-5" />
           </button>
@@ -450,7 +450,7 @@ function ModalShell({ title, children, onClose }: { title: string; children: Rea
 function PinInput({ label, value, autoFocus, onChange }: { label: string; value: string; autoFocus?: boolean; onChange: (value: string) => void }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-extrabold text-[#5a392a]">{label}</span>
+      <span className="mb-2 block text-sm font-semibold text-[#5a392a]">{label}</span>
       <input
         autoFocus={autoFocus}
         value={value}
@@ -458,7 +458,7 @@ function PinInput({ label, value, autoFocus, onChange }: { label: string; value:
         inputMode="numeric"
         maxLength={4}
         onChange={(event) => onChange(event.target.value.replace(/\D/g, "").slice(0, 4))}
-        className="h-11 w-full rounded-[16px] border border-[#ead8c9] bg-white px-4 text-base font-black tracking-[0.3em] text-[#2f1b12] outline-none focus:border-[#d85b36]"
+        className="h-11 w-full rounded-[16px] border border-[#ead8c9] bg-white px-4 text-base font-semibold tracking-[0.3em] text-[#2f1b12] outline-none focus:border-[#d85b36]"
       />
     </label>
   );

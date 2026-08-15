@@ -21,13 +21,13 @@ export default function ConversationTopicCard({ topic, onSelect }: Props) {
       <div className="flex gap-3">
         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f8e8dc] text-xl">{topic.icon}</span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2 font-extrabold text-[#2f1b12]">
+          <span className="flex items-center gap-2 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">
             {topic.topic}
             {topic.sensitivity === "sensitive" && <AlertTriangle className="h-4 w-4 text-[#c95735]" />}
           </span>
-          <span className="mt-1 block text-sm leading-relaxed text-[#3f2a20]">{topic.reason}</span>
-          <span className="mt-3 block text-xs font-extrabold text-[#8d5b45]">이렇게 물어보는 건 어때요?</span>
-          <span className="mt-1 block text-sm font-bold leading-relaxed text-[#a24c31]">{topic.suggestedQuestion}</span>
+          <span className="mt-1 block text-sm leading-[1.6] text-[#3f2a20]">{topic.reason}</span>
+          <span className="mt-3 block text-xs font-semibold text-[#8d5b45]">이렇게 물어보는 건 어때요?</span>
+          <span className="mt-1 block text-sm font-medium leading-[1.6] text-[#a24c31]">{topic.suggestedQuestion}</span>
         </span>
         <ChevronRight className="mt-4 h-5 w-5 shrink-0 text-[#8d5b45]" />
       </div>

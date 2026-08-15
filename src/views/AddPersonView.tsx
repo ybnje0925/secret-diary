@@ -131,8 +131,8 @@ export default function AddPersonView({ person, people, customGroups, initialNam
     <form onSubmit={handleSubmit} className="space-y-5 pb-6">
       <header className="flex items-center justify-between">
         <button type="button" onClick={onBack} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
-        <h1 className="text-xl font-black text-[#2f1b12]">{isEdit ? "사람 정보 수정" : "새로운 사람을 담아볼까요?"}</h1>
-        <button className="text-base font-extrabold text-[#c95735]">{isEdit ? "저장" : "추가"}</button>
+        <h1 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{isEdit ? "사람 정보 수정" : "새로운 사람을 담아볼까요?"}</h1>
+        <button className="text-base font-semibold text-[#c95735]">{isEdit ? "저장" : "추가"}</button>
       </header>
 
       <section className="rounded-[18px] bg-[#fff0e3] p-4">
@@ -149,11 +149,11 @@ export default function AddPersonView({ person, people, customGroups, initialNam
           <Avatar person={previewPerson} size="lg" />
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => handleImageFile(event.target.files?.[0])} />
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full border border-[#ead8c9] bg-white px-4 py-2 text-sm font-extrabold text-[#5a392a]">
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full border border-[#ead8c9] bg-white px-4 py-2 text-sm font-medium text-[#5a392a]">
               <Upload className="mr-1 inline h-4 w-4" /> 사진 선택
             </button>
             {avatarImageDataUrl && (
-              <button type="button" onClick={() => setAvatarImageDataUrl("")} className="rounded-full bg-[#fff1e8] px-4 py-2 text-sm font-extrabold text-[#c95735]">
+              <button type="button" onClick={() => setAvatarImageDataUrl("")} className="rounded-full bg-[#fff1e8] px-4 py-2 text-sm font-medium text-[#c95735]">
                 기본으로
               </button>
             )}
@@ -161,7 +161,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         </div>
 
         <div className="mt-5">
-          <p className="mb-2 text-sm font-extrabold text-[#2f1b12]">기본 프로필 선택</p>
+          <p className="mb-2 text-sm font-semibold text-[#2f1b12]">기본 프로필 선택</p>
           <div className="grid grid-cols-5 gap-2">
             {profilePresets.map((preset) => (
               <button
@@ -176,7 +176,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
                 className={`rounded-2xl border p-2 text-center ${avatarPreset === preset.id && !avatarImageDataUrl ? "border-[#d85b36] bg-[#fff1e8]" : "border-[#ead8c9] bg-white"}`}
               >
                 <span className="block text-2xl">{preset.emoji}</span>
-                <span className="mt-1 block text-[11px] font-bold text-[#5e473a]">{preset.label}</span>
+                <span className="mt-1 block text-[11px] font-medium text-[#5e473a]">{preset.label}</span>
               </button>
             ))}
           </div>
@@ -189,25 +189,25 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         </Field>
         {similarPeople.length > 0 && !forceAdd && (
           <div className="mb-4 rounded-2xl bg-[#fff1e8] p-4">
-            <h2 className="font-black text-[#2f1b12]">같은 이름의 사람이 있어요.</h2>
+            <h2 className="font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">같은 이름의 사람이 있어요.</h2>
             <div className="mt-3 space-y-2">
               {similarPeople.map((item) => (
                 <button key={item.id} type="button" onClick={() => onOpenExisting(item.id)} className="flex w-full items-center justify-between rounded-xl bg-white px-3 py-3 text-left">
                   <span>
-                    <span className="block font-extrabold text-[#2f1b12]">{item.name}</span>
+                    <span className="block font-semibold text-[#2f1b12]">{item.name}</span>
                     <span className="text-sm text-[#7c6252]">{getRelationLine(item)}</span>
                   </span>
-                  <span className="text-xs font-extrabold text-[#c95735]">보기</span>
+                  <span className="text-xs font-semibold text-[#c95735]">보기</span>
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => setForceAdd(true)} className="mt-3 text-sm font-extrabold text-[#c95735]">그래도 새로운 사람으로 추가하기</button>
+            <button type="button" onClick={() => setForceAdd(true)} className="mt-3 text-sm font-semibold text-[#c95735]">그래도 새로운 사람으로 추가하기</button>
           </div>
         )}
         <Field label="관계 *">
           <div className="grid grid-cols-5 gap-2">
             {primaryCategoryLabels.map((label) => (
-              <button key={label} type="button" onClick={() => setCategory(label)} className={`rounded-full px-3 py-2 text-sm font-extrabold ${category === label ? "bg-[#d85b36] text-white" : "border border-[#ead8c9] bg-white text-[#5a392a]"}`}>
+              <button key={label} type="button" onClick={() => setCategory(label)} className={`rounded-full px-3 py-2 text-sm font-medium ${category === label ? "bg-[#d85b36] text-white" : "border border-[#ead8c9] bg-white text-[#5a392a]"}`}>
                 {label}
               </button>
             ))}
@@ -216,7 +216,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         <Field label="그룹 (선택)">
           <div className="flex gap-2">
             <input list="group-options" value={groupInput} onChange={(event) => setGroupInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addGroup(groupInput); } }} placeholder="예) 테니스 모임, 대학교" className="saram-input h-12 flex-1" />
-            <button type="button" onClick={() => addGroup(groupInput)} className="rounded-full bg-[#d85b36] px-4 text-sm font-extrabold text-white">추가</button>
+            <button type="button" onClick={() => addGroup(groupInput)} className="rounded-full bg-[#d85b36] px-4 text-sm font-semibold text-white">추가</button>
           </div>
           <datalist id="group-options">
             {customGroups.map((item) => <option key={item.id} value={item.name} />)}
@@ -224,7 +224,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
           {groups.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {groups.map((group) => (
-                <button key={group} type="button" onClick={() => setGroups(groups.filter((item) => item !== group))} className="rounded-full bg-[#fff1e8] px-3 py-1.5 text-xs font-extrabold text-[#9a6044]">
+                <button key={group} type="button" onClick={() => setGroups(groups.filter((item) => item !== group))} className="rounded-full bg-[#fff1e8] px-3 py-1.5 text-xs font-medium text-[#9a6044]">
                   {group} ×
                 </button>
               ))}
@@ -237,7 +237,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         </Field>
       </section>
 
-      <button type="button" onClick={() => setShowDetails((value) => !value)} className="flex w-full items-center justify-between rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 text-left font-extrabold text-[#2f1b12] shadow-soft">
+      <button type="button" onClick={() => setShowDetails((value) => !value)} className="flex w-full items-center justify-between rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 text-left font-semibold text-[#2f1b12] shadow-soft">
         <span className="inline-flex items-center gap-2"><UserRound className="h-5 w-5 text-[#c95735]" /> 정보 조금 더 추가하기</span>
         <ChevronDown className={`h-5 w-5 transition ${showDetails ? "rotate-180" : ""}`} />
       </button>
@@ -275,7 +275,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         <span>이야기는 앞으로의 기록을 통해 자연스럽게 채워질 거예요.</span>
       </p>
 
-      <button className="sticky bottom-3 w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">
+      <button className="sticky bottom-3 w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">
         {isEdit ? "변경사항 저장" : "사람談에 추가하기"}
       </button>
     </form>
@@ -285,7 +285,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="mb-4 block last:mb-0">
-      <span className="mb-2 block text-sm font-extrabold text-[#2f1b12]">{label}</span>
+      <span className="mb-2 block text-sm font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">{label}</span>
       {children}
     </label>
   );

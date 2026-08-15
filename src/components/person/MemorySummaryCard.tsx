@@ -17,14 +17,14 @@ export default function MemorySummaryCard({ person, onEdit }: Props) {
   return (
     <section className="rounded-[18px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
       <div className="mb-2.5 flex items-center justify-between">
-        <h2 className="text-[15px] font-extrabold text-[#2f1b12]">✨ 다음 만남 전에 기억할 것</h2>
-        <button onClick={onEdit} className="rounded-full border border-[#ead8c9] bg-white px-3 py-1 text-xs font-bold text-[#5a392a]">
+        <h2 className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">✨ 다음 만남 전에 기억할 것</h2>
+        <button onClick={onEdit} className="rounded-full border border-[#ead8c9] bg-white px-3 py-1 text-xs font-medium text-[#5a392a]">
           <Edit3 className="mr-1 inline h-3 w-3" /> 편집
         </button>
       </div>
       <div className="space-y-2">
         {bullets.length > 0 ? bullets.map((bullet, index) => (
-          <p key={`${bullet}-${index}`} className="flex gap-2 text-[13px] leading-relaxed text-[#2f1b12]">
+          <p key={`${bullet}-${index}`} className="flex gap-2 text-[14px] leading-[1.65] text-[#2f1b12]">
             <span className="shrink-0">{getMemoryIcon(bullet)}</span>
             <span>{bullet}</span>
           </p>

@@ -27,7 +27,7 @@ export default function GroupManagerSheet({ groups, onClose, onCreate, onRename,
       <section onClick={(event) => event.stopPropagation()} className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
         <header className="flex items-center justify-between">
           <div>
-            <h2 className="text-[20px] font-black text-[#2f1b12]">그룹 관리</h2>
+            <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">그룹 관리</h2>
             <p className="mt-1 text-sm text-[#7c6252]">그룹을 정리해도 사람과 이야기는 삭제되지 않아요.</p>
           </div>
           <button onClick={onClose} className="rounded-full bg-[#fff1e8] p-2 text-[#5a392a]">
@@ -51,11 +51,11 @@ export default function GroupManagerSheet({ groups, onClose, onCreate, onRename,
                 {editingId === group.id ? (
                   <div className="flex gap-2">
                     <input value={editingName} onChange={(event) => setEditingName(event.target.value)} className="saram-input h-11 flex-1 text-sm" />
-                    <button onClick={() => { if (editingName.trim()) onRename(group.id, editingName.trim()); setEditingId(null); }} className="rounded-full bg-[#d85b36] px-4 text-sm font-extrabold text-white">저장</button>
+                    <button onClick={() => { if (editingName.trim()) onRename(group.id, editingName.trim()); setEditingId(null); }} className="rounded-full bg-[#d85b36] px-4 text-sm font-semibold text-white">저장</button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between gap-3">
-                    <span className="font-extrabold text-[#2f1b12]">{group.name}</span>
+                    <span className="font-semibold text-[#2f1b12]">{group.name}</span>
                     <div className="flex gap-1">
                       <button onClick={() => { setEditingId(group.id); setEditingName(group.name); }} className="rounded-full p-2 text-[#8d5b45]" aria-label={`${group.name} 수정`}>
                         <Edit3 className="h-4 w-4" />

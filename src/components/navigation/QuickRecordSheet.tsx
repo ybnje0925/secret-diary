@@ -21,7 +21,7 @@ export default function QuickRecordSheet({ isOpen, onClose, onQuickCapture, onAd
       <section onClick={(event) => event.stopPropagation()} className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
         <div className="mx-auto mb-4 h-1 w-16 rounded-full bg-[#cdb7a7]" />
         <div className="mb-5 flex items-start justify-between">
-          <h2 className="text-[22px] font-extrabold leading-tight text-[#2f1b12]">오늘 누구의 이야기를<br />담을까요? 🧡</h2>
+          <h2 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">오늘 누구의 이야기를<br />담을까요? 🧡</h2>
           <button onClick={onClose} className="rounded-full bg-[#f6eadf] p-2 text-[#2f1b12]">
             <X className="h-5 w-5" />
           </button>
@@ -35,8 +35,8 @@ export default function QuickRecordSheet({ isOpen, onClose, onQuickCapture, onAd
                   <Icon className="h-7 w-7" />
                 </span>
                 <span>
-                  <span className="block text-[15px] font-extrabold text-[#2f1b12]">{action.title}</span>
-                  <span className="mt-1 block text-sm leading-relaxed text-[#7c6252]">{action.desc}</span>
+                  <span className="block text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">{action.title}</span>
+                  <span className="mt-1 block text-sm leading-[1.6] text-[#7c6252]">{action.desc}</span>
                 </span>
               </button>
             );
@@ -45,7 +45,7 @@ export default function QuickRecordSheet({ isOpen, onClose, onQuickCapture, onAd
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f6eadf] text-[#2f1b12]">
               <UserPlus className="h-6 w-6" />
             </span>
-            <span className="text-[15px] font-extrabold text-[#2f1b12]">새로운 사람 추가하기</span>
+            <span className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">새로운 사람 추가하기</span>
           </button>
         </div>
       </section>

@@ -112,7 +112,7 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
             ))}
           </div>
 
-          {error && <p className="mt-3 rounded-full bg-[#fff1e8] px-4 py-2 text-sm font-bold text-[#c95735]">{error}</p>}
+          {error && <p className="mt-3 rounded-full bg-[#fff1e8] px-4 py-2 text-sm font-medium text-[#c95735]">{error}</p>}
 
           <div className="mt-5 grid w-full grid-cols-3 place-items-center gap-x-5 gap-y-2.5">
             {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((digit) => (
@@ -133,7 +133,7 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
             <button
               onClick={() => submit()}
               disabled={isSubmitting || confirmPin.length < 4}
-              className="mt-4 w-full rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white disabled:opacity-40"
+              className="mt-4 w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white disabled:opacity-40"
             >
               PIN 설정하고 시작하기
             </button>
@@ -150,7 +150,7 @@ export default function LockScreen({ onUnlocked }: LockScreenProps) {
 
 export function BrandTitle({ size = "md" }: { size?: "md" | "lg" }) {
   return (
-    <h1 className={`${size === "lg" ? "text-[32px]" : "text-[22px]"} font-black tracking-normal`}>
+    <h1 className={`${size === "lg" ? "text-[32px] tracking-[-0.03em]" : "text-[22px] tracking-[-0.025em]"} font-bold leading-[1.2]`}>
       <span className="text-[#2f1b12]">사람</span>
       <span className="text-[#d85b36]">談</span>
     </h1>
@@ -162,7 +162,7 @@ function KeyButton({ digit, onClick }: { digit: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="flex h-[52px] w-[52px] flex-col items-center justify-center rounded-full border border-[#ead8c9] bg-[#fffaf3] text-[22px] font-medium text-[#2f1b12] sm:h-14 sm:w-14 sm:text-2xl">
       <span>{digit}</span>
-      {letters[digit] && <span className="text-[9px] font-bold tracking-widest sm:text-[10px]">{letters[digit]}</span>}
+      {letters[digit] && <span className="text-[9px] font-medium tracking-normal sm:text-[10px]">{letters[digit]}</span>}
     </button>
   );
 }

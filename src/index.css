@@ -1,8 +1,39 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
+@font-face {
+  font-family: "SUIT";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "SUIT";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "SUIT";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "SUIT";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("https://cdn.jsdelivr.net/gh/sunn-us/SUIT/fonts/static/woff2/SUIT-Bold.woff2") format("woff2");
+}
+
 @theme {
-  --font-sans: 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif;
+  --font-sans: "SUIT", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * {
@@ -49,6 +80,9 @@ button {
   background: #fffdfa;
   padding: 13px 14px;
   color: #2f1b12;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.45;
   outline: none;
 }
 
@@ -97,12 +131,16 @@ button {
 .story-action b {
   color: #2f1b12;
   font-size: 17px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.015em;
 }
 
 .story-action small {
   margin-top: 4px;
   color: #7c6252;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .line-clamp-1,

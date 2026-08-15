@@ -164,7 +164,7 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
         className="relative w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden font-sans max-h-[90vh] flex flex-col border border-slate-200"
       >
         <div className="pt-5 px-6 pb-3 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <h2 className="text-base font-bold text-slate-900">{person ? "지인 정보 수정" : "새 지인 등록"}</h2>
+          <h2 className="text-base font-semibold text-slate-900">{person ? "지인 정보 수정" : "새 지인 등록"}</h2>
           <button id="close-person-form-modal-btn" onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 hover:bg-slate-100 rounded-full">
             <X className="w-5 h-5" />
           </button>
@@ -174,7 +174,7 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
 
           {/* Avatar */}
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
-            <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider">아바타</label>
+            <label className="block text-xs font-medium text-slate-400 uppercase tracking-wider">아바타</label>
             <div className="flex items-center gap-4">
               <div className={`w-12 h-12 text-2xl rounded-lg ${avatarBg} flex items-center justify-center border border-slate-200`}>{avatarEmoji}</div>
               <div className="flex-1 space-y-2">
@@ -201,38 +201,38 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
           {/* Basic info */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1.5">이름 *</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">이름 *</label>
               <div className="relative">
                 <Smile className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                 <input id="person-name-form-input" type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동"
-                  className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 font-medium text-slate-900" />
+                  className="w-full text-[15px] bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 font-medium text-slate-900" />
               </div>
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1.5">전화번호</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">전화번호</label>
               <div className="relative">
                 <Phone className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                 <input id="person-phone-form-input" type="text" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000"
-                  className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 text-slate-900" />
+                  className="w-full text-[15px] bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 text-slate-900" />
               </div>
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1.5">소속 / 직장명</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">소속 / 직장명</label>
               <div className="relative">
                 <Briefcase className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                 <input id="person-company-form-input" type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="한국회사 구매부"
-                  className="w-full text-xs bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 text-slate-900" />
+                  className="w-full text-[15px] bg-white border border-slate-200 rounded-lg pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 text-slate-900" />
               </div>
             </div>
           </div>
 
           {/* Category */}
           <div className="space-y-2">
-            <label className="block text-[11px] font-bold text-slate-500">관계 카테고리</label>
+            <label className="block text-xs font-medium text-slate-500">관계 카테고리</label>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
               {CATEGORIES.map(cat => (
                 <button key={cat} type="button" id={`category-btn-${cat}`} onClick={() => setCategory(cat)}
-                  className={`py-2.5 px-1 text-center text-xs font-bold rounded-lg border transition-all ${
+                  className={`py-2.5 px-1 text-center text-xs font-medium rounded-lg border transition-all ${
                     category === cat ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
                   }`}>
                   {cat}
@@ -243,13 +243,13 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
 
           {/* Custom groups */}
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
-            <label className="block text-[11px] font-bold text-slate-500">커스텀 그룹 태그</label>
+            <label className="block text-xs font-medium text-slate-500">커스텀 그룹 태그</label>
             <div className="flex flex-wrap gap-2">
               {customGroups.map(g => {
                 const hasTag = selectedGroups.includes(g.name);
                 return (
                   <button key={g.id} type="button" id={`toggle-group-btn-${g.name}`} onClick={() => handleToggleGroup(g.name)}
-                    className={`py-1.5 px-3.5 text-xs font-bold rounded-full border transition-all ${
+                    className={`py-1.5 px-3.5 text-xs font-medium rounded-full border transition-all ${
                       hasTag ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
                     }`}>
                     {hasTag ? "✓ " : ""}#{g.name}
@@ -259,27 +259,27 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
             </div>
             <div className="flex gap-2">
               <input id="new-group-tag-input" type="text" value={newGroupInput} onChange={(e) => setNewGroupInput(e.target.value)} placeholder="새로운 그룹 이름"
-                className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 font-medium text-slate-900" />
-              <button type="button" id="add-new-group-tag-btn" onClick={handleAddNewTag} className="py-2.5 px-5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-lg text-xs transition-all">추가</button>
+                className="flex-1 text-[15px] bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 font-medium text-slate-900" />
+              <button type="button" id="add-new-group-tag-btn" onClick={handleAddNewTag} className="py-2.5 px-5 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg text-xs transition-all">추가</button>
             </div>
           </div>
 
           {/* Family */}
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-4">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 border-b border-slate-200 pb-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 border-b border-slate-200 pb-2">
               <Heart className="w-4 h-4 text-rose-500" /> <span>가족 정보</span>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 mb-1.5">배우자 성함</label>
+              <label className="block text-xs font-medium text-slate-500 mb-1.5">배우자 성함</label>
               <input id="spouse-name-form-input" type="text" value={spouseName} onChange={(e) => setSpouseName(e.target.value)} placeholder="이지현"
-                className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 font-medium text-slate-900" />
+                className="w-full text-[15px] bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 font-medium text-slate-900" />
             </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 flex items-center gap-1"><Baby className="w-4 h-4 text-slate-400" /> 자녀 목록 ({children.length}명)</span>
-                <button id="add-child-row-btn" type="button" onClick={handleAddChildRow} className="py-1 px-3 bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold rounded-full text-[11px] flex items-center gap-1">
+                <span className="text-xs font-medium text-slate-700 flex items-center gap-1"><Baby className="w-4 h-4 text-slate-400" /> 자녀 목록 ({children.length}명)</span>
+                <button id="add-child-row-btn" type="button" onClick={handleAddChildRow} className="py-1 px-3 bg-teal-50 hover:bg-teal-100 text-teal-700 font-medium rounded-full text-[11px] flex items-center gap-1">
                   <Plus className="w-3 h-3" /> 자녀 추가
                 </button>
               </div>
@@ -295,25 +295,25 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-6">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">자녀 이름 *</label>
+                        <label className="block text-[11px] font-medium text-slate-400 mb-1">자녀 이름 *</label>
                         <input type="text" required value={child.name} onChange={(e) => handleChildChange(idx, "name", e.target.value)} placeholder="이민우"
                           className="w-full text-xs bg-white border border-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none text-slate-900 font-medium" />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">생년월일 {previewAge && <span className="text-teal-700 font-bold">({previewAge})</span>}</label>
+                        <label className="block text-[11px] font-medium text-slate-400 mb-1">생년월일 {previewAge && <span className="text-teal-700 font-medium">({previewAge})</span>}</label>
                         <input type="date" value={child.birthDate || ""} onChange={(e) => handleChildChange(idx, "birthDate", e.target.value)}
                           className="w-full text-xs bg-white border border-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none text-slate-900 font-medium" />
                       </div>
                     </div>
                     {!child.birthDate && (
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 mb-1">나이 / 학년 (생년월일 모를 때)</label>
+                        <label className="block text-[11px] font-medium text-slate-400 mb-1">나이 / 학년 (생년월일 모를 때)</label>
                         <input type="text" value={child.ageOrBirth} onChange={(e) => handleChildChange(idx, "ageOrBirth", e.target.value)} placeholder="7살 / 초교 1학년"
                           className="w-full text-xs bg-white border border-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none text-slate-900 font-medium" />
                       </div>
                     )}
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 mb-1">자녀 메모</label>
+                      <label className="block text-[11px] font-medium text-slate-400 mb-1">자녀 메모</label>
                       <input type="text" value={child.memo} onChange={(e) => handleChildChange(idx, "memo", e.target.value)} placeholder="피아노 학원 다님, 딸기를 아주 좋아함"
                         className="w-full text-xs bg-white border border-slate-200 rounded-md px-2.5 py-1.5 focus:outline-none text-slate-900 font-medium" />
                     </div>
@@ -326,8 +326,8 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
           {/* Events history */}
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700 flex items-center gap-1"><Gift className="w-4 h-4 text-slate-400" /> 경조사 & 선물 히스토리</span>
-              <button id="add-event-row-btn" type="button" onClick={handleAddEventRow} className="py-1 px-3 bg-teal-50 hover:bg-teal-100 text-teal-700 font-bold rounded-full text-[11px] flex items-center gap-1">
+              <span className="text-xs font-medium text-slate-700 flex items-center gap-1"><Gift className="w-4 h-4 text-slate-400" /> 경조사 & 선물 히스토리</span>
+              <button id="add-event-row-btn" type="button" onClick={handleAddEventRow} className="py-1 px-3 bg-teal-50 hover:bg-teal-100 text-teal-700 font-medium rounded-full text-[11px] flex items-center gap-1">
                 <Plus className="w-3 h-3" /> 기록 추가
               </button>
             </div>
@@ -356,19 +356,19 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
 
           {/* Preferences */}
           <div className="space-y-3">
-            <label className="block text-[11px] font-bold text-slate-500 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> 미팅 전 체크리스트</label>
+            <label className="block text-xs font-medium text-slate-500 flex items-center gap-1"><Sparkles className="w-3.5 h-3.5" /> 미팅 전 체크리스트</label>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1">좋아하는/못 먹는 음식</label>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">좋아하는/못 먹는 음식</label>
               <input type="text" value={food} onChange={(e) => setFood(e.target.value)} placeholder="우유 알레르기, 삼겹살 좋아함"
                 className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 text-slate-900" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1">취미</label>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">취미</label>
               <input type="text" value={hobbies} onChange={(e) => setHobbies(e.target.value)} placeholder="테니스, 캠핑"
                 className="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 text-slate-900" />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-400 mb-1">그 외 특이사항</label>
+              <label className="block text-[11px] font-medium text-slate-400 mb-1">그 외 특이사항</label>
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="정장 사이즈, 건강 상태 등 자유 기록"
                 className="w-full h-20 text-xs bg-white border border-slate-200 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-teal-600/20 resize-none text-slate-900" />
             </div>
@@ -376,11 +376,11 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
 
           {/* Reminder */}
           <div className="space-y-2">
-            <label className="block text-[11px] font-bold text-slate-500 flex items-center gap-1"><Bell className="w-3.5 h-3.5" /> 장기 미연락 리마인드</label>
+            <label className="block text-xs font-medium text-slate-500 flex items-center gap-1"><Bell className="w-3.5 h-3.5" /> 장기 미연락 리마인드</label>
             <div className="flex gap-2">
               {REMIND_OPTIONS.map(opt => (
                 <button key={opt.label} type="button" onClick={() => setRemindIntervalDays(opt.value)}
-                  className={`py-2 px-3.5 text-xs font-bold rounded-lg border transition-all ${
+                  className={`py-2 px-3.5 text-xs font-medium rounded-lg border transition-all ${
                     remindIntervalDays === opt.value ? "bg-slate-900 text-white border-slate-900" : "bg-white border-slate-200 hover:bg-slate-50 text-slate-600"
                   }`}>
                   {opt.label}
@@ -390,8 +390,8 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
           </div>
 
           <div className="pt-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
-            <button type="button" id="cancel-person-form-btn" onClick={onClose} className="py-2.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg text-xs transition-colors">취소</button>
-            <button type="submit" id="submit-person-form-btn" className="py-2.5 px-6 bg-teal-700 hover:bg-teal-800 text-white font-bold rounded-lg text-xs transition-colors">
+            <button type="button" id="cancel-person-form-btn" onClick={onClose} className="py-2.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium rounded-lg text-xs transition-colors">취소</button>
+            <button type="submit" id="submit-person-form-btn" className="py-2.5 px-6 bg-teal-700 hover:bg-teal-800 text-white font-medium rounded-lg text-xs transition-colors">
               {person ? "변경 저장" : "지인 추가"}
             </button>
           </div>

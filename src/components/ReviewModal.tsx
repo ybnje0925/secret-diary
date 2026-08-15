@@ -12,17 +12,17 @@ interface ReviewModalProps {
 const getRelationBadgeClass = (category: string) => {
   switch (category) {
     case "가족":
-      return "text-[10px] bg-rose-50 text-rose-700 px-2.5 py-0.5 rounded-full font-bold border border-rose-200";
+      return "text-[10px] bg-rose-50 text-rose-700 px-2.5 py-0.5 rounded-full font-medium border border-rose-200";
     case "친구":
-      return "text-[10px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-bold border border-blue-200";
+      return "text-[10px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-medium border border-blue-200";
     case "지인":
-      return "text-[10px] bg-amber-50 text-amber-700 px-2.5 py-0.5 rounded-full font-bold border border-amber-200";
+      return "text-[10px] bg-amber-50 text-amber-700 px-2.5 py-0.5 rounded-full font-medium border border-amber-200";
     case "회사-업무":
-      return "text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-bold border border-emerald-200";
+      return "text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-medium border border-emerald-200";
     case "회사-동료":
-      return "text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-bold border border-slate-200";
+      return "text-[10px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-medium border border-slate-200";
     default:
-      return "text-[10px] bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-full font-bold border border-purple-200";
+      return "text-[10px] bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-full font-medium border border-purple-200";
   }
 };
 
@@ -77,8 +77,8 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
 
           <div className="flex items-start justify-between pb-4 border-b border-slate-200">
             <div>
-              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full uppercase tracking-wider">1-Min Quick Review</span>
-              <h2 className="text-xl font-bold text-slate-900 mt-2">{person.name}님과의 미팅 1분 전</h2>
+              <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full uppercase tracking-wider">1-Min Quick Review</span>
+              <h2 className="text-[20px] font-semibold text-slate-900 mt-2">{person.name}님과의 미팅 1분 전</h2>
             </div>
             <button id="close-review-modal-btn" onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 hover:bg-slate-100 rounded-full">
               <X className="w-5 h-5" />
@@ -90,10 +90,10 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
               <Clock className={`w-5 h-5 ${isCompleted ? "text-emerald-600" : "text-teal-600 animate-pulse"}`} />
               <div>
                 <p className="text-[11px] text-slate-500 font-medium">권장 복습 시간</p>
-                <p className="text-xs font-bold leading-tight">{isCompleted ? "복습 완료! 이제 들어가셔도 좋습니다" : `핵심 리마인드 (${timeLeft}초 남음)`}</p>
+                <p className="text-xs font-medium leading-tight">{isCompleted ? "복습 완료! 이제 들어가셔도 좋습니다" : `핵심 리마인드 (${timeLeft}초 남음)`}</p>
               </div>
             </div>
-            <div className="text-xl font-mono font-bold text-slate-900 px-3.5 py-1 bg-white rounded-lg border border-slate-200">
+            <div className="text-xl font-mono font-medium text-slate-900 px-3.5 py-1 bg-white rounded-lg border border-slate-200">
               {timeLeft > 0 ? `00:${timeLeft.toString().padStart(2, "0")}` : "00:00"}
             </div>
           </div>
@@ -104,7 +104,7 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
               <div className={`w-14 h-14 text-3xl rounded-xl ${person.avatarBg} flex items-center justify-center shrink-0`}>{person.avatarEmoji}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-xl font-bold text-slate-900 leading-none">{person.name}</h3>
+                  <h3 className="text-[20px] font-semibold text-slate-900 leading-none">{person.name}</h3>
                   <span className={getRelationBadgeClass(person.category)}>{person.category}</span>
                 </div>
                 <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1 font-medium"><Briefcase className="w-3.5 h-3.5" /> {person.company || "소속 없음"}</p>
@@ -116,13 +116,13 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {person.preferences.food && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs">
-                    <div className="flex items-center gap-1.5 font-bold text-amber-800 mb-1"><UtensilsCrossed className="w-3.5 h-3.5" /> 음식</div>
+                    <div className="flex items-center gap-1.5 font-medium text-amber-800 mb-1"><UtensilsCrossed className="w-3.5 h-3.5" /> 음식</div>
                     <p className="text-slate-700">{person.preferences.food}</p>
                   </div>
                 )}
                 {person.preferences.hobbies && (
                   <div className="bg-teal-50 border border-teal-200 rounded-xl p-3 text-xs">
-                    <div className="flex items-center gap-1.5 font-bold text-teal-800 mb-1"><Dumbbell className="w-3.5 h-3.5" /> 취미</div>
+                    <div className="flex items-center gap-1.5 font-medium text-teal-800 mb-1"><Dumbbell className="w-3.5 h-3.5" /> 취미</div>
                     <p className="text-slate-700">{person.preferences.hobbies}</p>
                   </div>
                 )}
@@ -137,10 +137,10 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
 
             {(person.familyInfo?.spouseName || person.familyInfo?.children.length > 0) && (
               <div className="p-4 bg-rose-50 rounded-xl border border-rose-200 space-y-3">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-rose-700"><Heart className="w-4 h-4" /> <span>가족 정보</span></div>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-rose-700"><Heart className="w-4 h-4" /> <span>가족 정보</span></div>
                 <div className="space-y-2 text-xs">
                   {person.familyInfo?.spouseName && (
-                    <p className="flex items-center gap-1.5 bg-white p-2 rounded-lg text-slate-700"><span className="text-slate-400 font-medium">배우자:</span><span className="font-bold text-slate-900">{person.familyInfo.spouseName}님</span></p>
+                    <p className="flex items-center gap-1.5 bg-white p-2 rounded-lg text-slate-700"><span className="text-slate-400 font-medium">배우자:</span><span className="font-medium text-slate-900">{person.familyInfo.spouseName}님</span></p>
                   )}
                   {person.familyInfo.children.map((child, idx) => {
                     const age = child.birthDate ? calculateAge(child.birthDate) : null;
@@ -148,7 +148,7 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
                       <div key={idx} className="flex items-start gap-1.5 bg-white p-2.5 rounded-lg text-slate-700">
                         <Baby className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0" />
                         <div>
-                          <span className="font-bold text-slate-900">{child.name}</span>
+                          <span className="font-medium text-slate-900">{child.name}</span>
                           <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium ml-1.5">{age || child.ageOrBirth}</span>
                           {child.memo && <p className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-md italic mt-1">{child.memo}</p>}
                         </div>
@@ -161,18 +161,18 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
 
             {person.preferences.notes && (
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700"><Sparkles className="w-4 h-4 text-teal-600" /> <span>특이사항</span></div>
-                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{person.preferences.notes}</p>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700"><Sparkles className="w-4 h-4 text-teal-600" /> <span>특이사항</span></div>
+                <p className="text-[13px] text-slate-600 leading-[1.6] whitespace-pre-wrap">{person.preferences.notes}</p>
               </div>
             )}
 
             {person.history && person.history.length > 0 ? (
               <div className="p-4 bg-blue-50/60 rounded-xl border border-blue-200 space-y-2">
-                <div className="flex items-center justify-between text-xs font-bold text-blue-700">
+                <div className="flex items-center justify-between text-xs font-medium text-blue-700">
                   <div className="flex items-center gap-1.5"><MessageSquare className="w-4 h-4" /><span>최근 대화 요약</span></div>
                   <span className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-mono">{person.history[0].date} ({person.history[0].medium})</span>
                 </div>
-                <div className="text-xs text-slate-600 space-y-1 whitespace-pre-line pl-2 border-l-2 border-blue-300">{person.history[0].summary}</div>
+                <div className="text-[13px] text-slate-600 leading-[1.6] space-y-1 whitespace-pre-line pl-2 border-l-2 border-blue-300">{person.history[0].summary}</div>
               </div>
             ) : (
               <div className="p-4 bg-slate-50 rounded-xl text-center border border-slate-200"><p className="text-xs text-slate-400 font-medium">최근 대화 기록이 아직 없습니다.</p></div>
@@ -180,13 +180,13 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
           </div>
 
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Smile className="w-4 h-4 text-teal-600" /> 대화 시작 팁</h4>
+            <h4 className="text-xs font-medium text-slate-700 uppercase tracking-wide mb-2 flex items-center gap-1.5"><Smile className="w-4 h-4 text-teal-600" /> 대화 시작 팁</h4>
             <ul className="space-y-1.5">
-              {tips.map((tip, idx) => <li key={idx} className="text-xs text-slate-600 leading-relaxed pl-1">• {tip}</li>)}
+              {tips.map((tip, idx) => <li key={idx} className="text-[13px] text-slate-600 leading-[1.6] pl-1">• {tip}</li>)}
             </ul>
           </div>
 
-          <button id="confirm-review-finished-btn" onClick={onClose} className="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-slate-800 transition-all text-sm flex items-center justify-center gap-2 mt-2">
+          <button id="confirm-review-finished-btn" onClick={onClose} className="w-full bg-slate-900 text-white font-medium py-4 rounded-xl hover:bg-slate-800 transition-all text-sm flex items-center justify-center gap-2 mt-2">
             <Smile className="w-4.5 h-4.5" /> 복습 완료! 미팅 시작하기
           </button>
 

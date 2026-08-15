@@ -23,7 +23,7 @@ export default function BottomNavigation({ activeTab, onChangeTab, onQuickRecord
           const Icon = item.icon;
           const active = activeTab === item.id;
           return (
-            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-0.5 py-1 text-[10px] font-bold ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
+            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-0.5 py-1 text-[10px] font-medium ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
               <Icon className="h-[19px] w-[19px]" />
               {item.label}
             </button>
@@ -36,7 +36,7 @@ export default function BottomNavigation({ activeTab, onChangeTab, onQuickRecord
           const Icon = item.icon;
           const active = activeTab === item.id;
           return (
-            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-0.5 py-1 text-[10px] font-bold ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
+            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-0.5 py-1 text-[10px] font-medium ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
               <Icon className="h-[19px] w-[19px]" />
               {item.label}
             </button>

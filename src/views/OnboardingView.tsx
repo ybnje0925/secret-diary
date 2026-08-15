@@ -35,16 +35,16 @@ export default function OnboardingView({ onComplete, onSkip }: Props) {
       <header className="space-y-2">
         <BrandTitle />
         <p className="text-sm leading-relaxed text-[#7c6252]">소중한 사람들의 이야기를 담아두세요.</p>
-        <p className="mx-auto max-w-xs whitespace-pre-line text-[15px] font-extrabold leading-relaxed text-[#2f1b12]">
+        <p className="mx-auto max-w-xs whitespace-pre-line text-[15px] font-semibold leading-[1.55] tracking-[-0.015em] text-[#2f1b12]">
           만나고 나서는 기록하고,{"\n"}다시 만나기 전에는 기억하세요.
         </p>
       </header>
 
       <section className="mx-auto w-full max-w-sm rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-5 shadow-soft">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#fff0e3] text-3xl">{page.icon}</div>
-        <p className="mt-5 text-xs font-black text-[#d85b36]">0{index + 1}</p>
-        <h1 className="mt-1 text-[22px] font-black text-[#2f1b12]">{page.title}</h1>
-        <p className="mt-3 whitespace-pre-line text-sm leading-relaxed text-[#5e473a]">{page.body}</p>
+        <p className="mt-5 text-xs font-semibold text-[#d85b36]">0{index + 1}</p>
+        <h1 className="mt-1 text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{page.title}</h1>
+        <p className="mt-3 whitespace-pre-line text-sm leading-[1.6] text-[#5e473a]">{page.body}</p>
       </section>
 
       <footer className="space-y-4">
@@ -71,7 +71,7 @@ export default function OnboardingView({ onComplete, onSkip }: Props) {
           <button
             type="button"
             onClick={() => isLast ? onComplete() : setIndex((value) => value + 1)}
-            className="h-11 rounded-full bg-[#d85b36] text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]"
+            className="h-11 rounded-full bg-[#d85b36] text-sm font-semibold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]"
           >
             {isLast ? "사람談 시작하기" : "다음"}
           </button>
@@ -84,7 +84,7 @@ export default function OnboardingView({ onComplete, onSkip }: Props) {
           </button>
         </div>
 
-        <button type="button" onClick={onSkip} className="text-xs font-extrabold text-[#8d5b45]">건너뛰기</button>
+        <button type="button" onClick={onSkip} className="text-xs font-medium text-[#8d5b45]">건너뛰기</button>
       </footer>
     </div>
   );

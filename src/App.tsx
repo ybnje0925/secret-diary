@@ -383,16 +383,16 @@ export default function App() {
           <div className="flex min-h-[70vh] flex-col justify-center space-y-4 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f8d8c7] text-3xl">🌿</div>
             <div>
-              <h1 className="text-[22px] font-black">첫 번째 사람을 담아볼까요?</h1>
-              <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed text-[#7c6252]">
+              <h1 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em]">첫 번째 사람을 담아볼까요?</h1>
+              <p className="mt-1.5 whitespace-pre-line text-sm leading-[1.6] text-[#7c6252]">
                 가장 먼저 떠오르는 사람 한 명이면 충분해요.
               </p>
             </div>
-            <button onClick={() => openAddPerson()} className="rounded-full bg-[#d85b36] py-3 text-sm font-extrabold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">+ 사람 담기</button>
+            <button onClick={() => openAddPerson()} className="rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white shadow-[0_8px_18px_rgba(216,91,54,0.18)]">+ 사람 담기</button>
             {!firstUsePromptDismissed && (
-              <button onClick={() => setFirstUsePromptDismissed(true)} className="rounded-full border border-[#ead8c9] bg-[#fffaf3] py-3 text-sm font-extrabold text-[#5a392a]">나중에 할게요</button>
+              <button onClick={() => setFirstUsePromptDismissed(true)} className="rounded-full border border-[#ead8c9] bg-[#fffaf3] py-3 text-sm font-medium text-[#5a392a]">나중에 할게요</button>
             )}
-            <button onClick={handleLoadDemoData} className="text-xs font-extrabold text-[#8d5b45]">기존 demo data 표시</button>
+            <button onClick={handleLoadDemoData} className="text-xs font-medium text-[#8d5b45]">기존 demo data 표시</button>
           </div>
         ) : (
           <>
@@ -506,7 +506,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="fixed left-1/2 top-5 z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-extrabold text-[#5a392a] shadow-soft">
+        <div className="fixed left-1/2 top-5 z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-semibold text-[#5a392a] shadow-soft">
           {toast}
         </div>
       )}

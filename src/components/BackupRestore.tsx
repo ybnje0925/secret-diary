@@ -108,8 +108,8 @@ export default function BackupRestore({
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 text-xs">
       <div>
-        <p className="text-sm font-bold text-slate-900">데이터 백업 및 초기화</p>
-        <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+        <p className="text-sm font-medium text-slate-900">데이터 백업 및 초기화</p>
+        <p className="text-[13px] text-slate-500 mt-1 leading-[1.6]">
           현재 기록된 {people.length}명의 지인 정보와 대화 히스토리를 로컬 파일로 백업해 보관하거나 초기화할 수 있습니다.
         </p>
       </div>
@@ -118,7 +118,7 @@ export default function BackupRestore({
         <button
           id="export-backup-btn"
           onClick={handleExport}
-          className="py-2 px-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg border border-slate-200 transition-all flex items-center gap-1.5"
+          className="py-2 px-4 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-lg border border-slate-200 transition-all flex items-center gap-1.5"
         >
           <Download className="w-3.5 h-3.5 text-teal-700" /> 백업 파일 다운로드
         </button>
@@ -126,7 +126,7 @@ export default function BackupRestore({
         <button
           id="import-backup-btn"
           onClick={triggerFileInput}
-          className="py-2 px-4 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg border border-slate-200 transition-all flex items-center gap-1.5"
+          className="py-2 px-4 bg-white hover:bg-slate-50 text-slate-700 font-medium rounded-lg border border-slate-200 transition-all flex items-center gap-1.5"
         >
           <Upload className="w-3.5 h-3.5 text-teal-700" /> 백업 가져오기
           <input
@@ -141,7 +141,7 @@ export default function BackupRestore({
         <button
           id="clear-all-data-btn"
           onClick={confirmClearAll}
-          className="py-2 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-lg border border-rose-200 transition-all flex items-center gap-1.5"
+          className="py-2 px-4 bg-rose-50 hover:bg-rose-100 text-rose-600 font-medium rounded-lg border border-rose-200 transition-all flex items-center gap-1.5"
         >
           <Trash2 className="w-3.5 h-3.5" /> 데이터 전체 삭제
         </button>
@@ -152,7 +152,7 @@ export default function BackupRestore({
           onSubmit={handleDecryptPendingBackup}
           className="w-full lg:w-auto flex flex-wrap items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3"
         >
-          <span className="text-[11px] text-slate-500 font-bold flex items-center gap-1 whitespace-nowrap">
+          <span className="text-[11px] text-slate-500 font-medium flex items-center gap-1 whitespace-nowrap">
             <KeyRound className="w-3.5 h-3.5 text-teal-700" /> 이 백업의 비밀번호:
           </span>
           <input
@@ -166,14 +166,14 @@ export default function BackupRestore({
           <button
             type="submit"
             disabled={!backupPin}
-            className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white rounded-lg text-[11px] font-bold"
+            className="py-1.5 px-3 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white rounded-lg text-xs font-medium"
           >
             확인
           </button>
           <button
             type="button"
             onClick={() => { setPendingBackup(null); setBackupPin(""); setBackupError(null); }}
-            className="py-1.5 px-3 text-slate-400 hover:text-slate-700 text-[11px] font-bold"
+            className="py-1.5 px-3 text-slate-400 hover:text-slate-700 text-xs font-medium"
           >
             취소
           </button>

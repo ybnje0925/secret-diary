@@ -51,35 +51,35 @@ function NotificationSheet({ people, onClose, onOpenPerson, onStartCheckIn }: { 
       <section onClick={(event) => event.stopPropagation()} className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
         <header className="flex items-center justify-between">
           <div>
-            <h2 className="text-[20px] font-black text-[#2f1b12]">알림</h2>
-            <p className="mt-1 text-sm text-[#7c6252]">챙겨볼 안부와 함께한 마음을 모았어요.</p>
+            <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">알림</h2>
+            <p className="mt-1 text-sm leading-[1.6] text-[#7c6252]">챙겨볼 안부와 함께한 마음을 모았어요.</p>
           </div>
           <button onClick={onClose} className="rounded-full bg-[#fff1e8] p-2 text-[#5a392a]"><X className="h-5 w-5" /></button>
         </header>
 
         <div className="mt-4 space-y-3">
           <section>
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-black text-[#2f1b12]"><HeartHandshake className="h-4 w-4 text-[#d85b36]" /> 안부가 필요한 사람</h3>
+            <h3 className="mb-2 flex items-center gap-2 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]"><HeartHandshake className="h-4 w-4 text-[#d85b36]" /> 안부가 필요한 사람</h3>
             {overdue.length === 0 ? <p className="rounded-2xl bg-white/70 p-4 text-sm text-[#7c6252]">지금은 새 알림이 없어요.</p> : overdue.map((person) => (
               <button key={person.id} onClick={() => { onClose(); onStartCheckIn(person.id); }} className="mb-2 flex w-full items-center justify-between rounded-2xl border border-[#ead8c9] bg-white/70 p-3 text-left last:mb-0">
                 <span>
-                  <b className="block text-[#2f1b12]">{person.name}</b>
+                  <b className="block font-semibold text-[#2f1b12]">{person.name}</b>
                   <small className="text-[#7c6252]">마지막 연락 {daysSince(person.lastContactDate)}일 전</small>
                 </span>
-                <span className="text-xs font-extrabold text-[#c95735]">안부</span>
+                <span className="text-xs font-semibold text-[#c95735]">안부</span>
               </button>
             ))}
           </section>
 
           <section>
-            <h3 className="mb-2 flex items-center gap-2 text-sm font-black text-[#2f1b12]"><CalendarDays className="h-4 w-4 text-[#d85b36]" /> 함께한 마음</h3>
+            <h3 className="mb-2 flex items-center gap-2 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]"><CalendarDays className="h-4 w-4 text-[#d85b36]" /> 함께한 마음</h3>
             {events.length === 0 ? <p className="rounded-2xl bg-white/70 p-4 text-sm text-[#7c6252]">기념일이나 선물 기록이 아직 없어요.</p> : events.map(({ person, event }) => (
               <button key={`${person.id}-${event.id}`} onClick={() => { onClose(); onOpenPerson(person.id); }} className="mb-2 flex w-full items-center justify-between rounded-2xl border border-[#ead8c9] bg-white/70 p-3 text-left last:mb-0">
                 <span>
-                  <b className="block text-[#2f1b12]">{event.amountOrGift || event.type}</b>
+                  <b className="block font-semibold text-[#2f1b12]">{event.amountOrGift || event.type}</b>
                   <small className="text-[#7c6252]">{person.name} · {event.date}</small>
                 </span>
-                <span className="text-xs font-extrabold text-[#8d5b45]">보기</span>
+                <span className="text-xs font-semibold text-[#8d5b45]">보기</span>
               </button>
             ))}
           </section>
