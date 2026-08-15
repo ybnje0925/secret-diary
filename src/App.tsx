@@ -1,5 +1,6 @@
 ﻿import { AnimatePresence } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import ConfirmDialog, { ConfirmDialogOptions } from "./components/common/ConfirmDialog";
 import BottomNavigation, { AppTab } from "./components/navigation/BottomNavigation";
 import LockScreen from "./components/LockScreen";
 import GroupManagerSheet from "./components/people/GroupManagerSheet";
@@ -18,6 +19,7 @@ import SettingsView from "./views/SettingsView";
 import OnboardingView from "./views/OnboardingView";
 
 type AppLayer = "root" | "detail" | "add";
+type ConfirmRequest = ConfirmDialogOptions & { onConfirm: () => void };
 
 export default function App() {
   const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
@@ -36,13 +38,24 @@ export default function App() {
   const [layer, setLayer] = useState<AppLayer>("root");
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
   const [firstUsePromptDismissed, setFirstUsePromptDismissed] = useState(false);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
 
   const peopleRef = useRef<Person[]>([]);
   const groupsRef = useRef<CustomGroup[]>([]);
   const historyLayerRef = useRef<AppLayer>("root");
+  const layerRef = useRef<AppLayer>("root");
+  const groupManagerOpenRef = useRef(false);
+  const storyOpenRef = useRef(false);
+  const confirmOpenRef = useRef(false);
   const backPressedAtRef = useRef(0);
-  const touchStartXRef = useRef<number | null>(null);
   const autoLockTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const tabScrollPositionsRef = useRef<Record<AppTab, number>>({ home: 0, people: 0, checkin: 0, settings: 0 });
+
+  useEffect(() => { layerRef.current = layer; }, [layer]);
+  useEffect(() => { groupManagerOpenRef.current = groupManagerOpen; }, [groupManagerOpen]);
+  useEffect(() => { storyOpenRef.current = storyInitialPersonId !== undefined; }, [storyInitialPersonId]);
+  useEffect(() => { confirmOpenRef.current = confirmRequest !== null; }, [confirmRequest]);
 
   useEffect(() => {
     if (!vaultKey) return;
@@ -51,8 +64,33 @@ export default function App() {
   }, [vaultKey]);
 
   useEffect(() => {
-    const onPopState = () => {
+    const onPopState = (event: PopStateEvent) => {
+      if (confirmOpenRef.current) {
+        setConfirmRequest(null);
+        window.history.pushState({ layer: historyLayerRef.current, guard: true }, "");
+        return;
+      }
+      const overlayBackEvent = new CustomEvent("saramdam:overlay-back", { cancelable: true });
+      if (!window.dispatchEvent(overlayBackEvent)) {
+        window.history.pushState({ layer: historyLayerRef.current, guard: true }, "");
+        return;
+      }
+      if (storyOpenRef.current) {
+        setStoryInitialPersonId(undefined);
+        window.history.pushState({ layer: historyLayerRef.current, guard: true }, "");
+        return;
+      }
+      if (groupManagerOpenRef.current) {
+        setGroupManagerOpen(false);
+        window.history.pushState({ layer: historyLayerRef.current, guard: true }, "");
+        return;
+      }
       if (historyLayerRef.current === "root") {
+        const rootBackEvent = new CustomEvent("saramdam:root-back", { cancelable: true });
+        if (!window.dispatchEvent(rootBackEvent)) {
+          window.history.pushState({ layer: "root", guard: true }, "");
+          return;
+        }
         const now = Date.now();
         if (now - backPressedAtRef.current < 2000) {
           return;
@@ -63,13 +101,50 @@ export default function App() {
         window.history.pushState({ layer: "root", guard: true }, "");
         return;
       }
-      historyLayerRef.current = "root";
-      setLayer("root");
+      const nextLayer: AppLayer = event.state?.layer === "detail" ? "detail" : "root";
+      historyLayerRef.current = nextLayer;
+      setLayer(nextLayer);
       setStoryInitialPersonId(undefined);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
+
+  useEffect(() => {
+    const visualViewport = window.visualViewport;
+    if (!visualViewport) return;
+
+    const updateKeyboardState = () => {
+      const activeElement = document.activeElement;
+      const isFormControl = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLSelectElement;
+      setKeyboardOpen(isFormControl && window.innerHeight - visualViewport.height > 120);
+    };
+
+    visualViewport.addEventListener("resize", updateKeyboardState);
+    window.addEventListener("focusin", updateKeyboardState);
+    window.addEventListener("focusout", updateKeyboardState);
+    return () => {
+      visualViewport.removeEventListener("resize", updateKeyboardState);
+      window.removeEventListener("focusin", updateKeyboardState);
+      window.removeEventListener("focusout", updateKeyboardState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (layer !== "root") return;
+    const top = tabScrollPositionsRef.current[activeTab] || 0;
+    window.requestAnimationFrame(() => window.scrollTo({ top, behavior: "auto" }));
+  }, [activeTab, layer]);
+
+  const rememberTabScroll = () => {
+    if (layerRef.current === "root") {
+      tabScrollPositionsRef.current[activeTab] = window.scrollY;
+    }
+  };
+
+  const requestConfirm = (options: ConfirmRequest) => {
+    setConfirmRequest(options);
+  };
 
   const pushLayer = (nextLayer: Exclude<AppLayer, "root">) => {
     if (historyLayerRef.current !== nextLayer) {
@@ -221,15 +296,24 @@ export default function App() {
   };
 
   const handleDeleteHistory = (personId: string, historyId: string) => {
-    if (!window.confirm("이 이야기 기록을 삭제할까요?")) return;
-    updatePerson(personId, (person) => {
-      const nextHistory = person.history.filter((item) => item.id !== historyId);
-      return {
-        ...person,
-        history: nextHistory,
-        lastContactDate: nextHistory[0]?.date || person.lastContactDate,
-        lastContactMedium: nextHistory[0]?.medium || person.lastContactMedium
-      };
+    requestConfirm({
+      title: "이야기 기록을 삭제할까요?",
+      message: "삭제한 이야기는 다시 되돌릴 수 없어요.",
+      confirmLabel: "삭제",
+      danger: true,
+      onConfirm: () => {
+        updatePerson(personId, (person) => {
+          const nextHistory = person.history.filter((item) => item.id !== historyId);
+          return {
+            ...person,
+            history: nextHistory,
+            lastContactDate: nextHistory[0]?.date || person.lastContactDate,
+            lastContactMedium: nextHistory[0]?.medium || person.lastContactMedium
+          };
+        });
+        setToast("이야기 기록을 삭제했어요.");
+        window.setTimeout(() => setToast(""), 2000);
+      }
     });
   };
 
@@ -246,21 +330,40 @@ export default function App() {
   };
 
   const handleDeleteEvent = (personId: string, eventId: string) => {
-    if (!window.confirm("이 함께한 마음 기록을 삭제할까요?")) return;
-    updatePerson(personId, (person) => ({
-      ...person,
-      eventsHistory: person.eventsHistory.filter((item) => item.id !== eventId)
-    }));
+    requestConfirm({
+      title: "함께한 마음 기록을 삭제할까요?",
+      message: "삭제한 기록은 다시 되돌릴 수 없어요.",
+      confirmLabel: "삭제",
+      danger: true,
+      onConfirm: () => {
+        updatePerson(personId, (person) => ({
+          ...person,
+          eventsHistory: person.eventsHistory.filter((item) => item.id !== eventId)
+        }));
+        setToast("함께한 마음 기록을 삭제했어요.");
+        window.setTimeout(() => setToast(""), 2000);
+      }
+    });
   };
 
   const handleDeletePerson = (personId: string) => {
     const person = people.find((item) => item.id === personId);
-    if (!person || !window.confirm(`${person.name}님을 사람談에서 삭제할까요?\n\n${person.name}님과 함께 담아둔 이야기와 관련 정보가 삭제됩니다.`)) return;
-    const nextPeople = people.filter((item) => item.id !== personId);
-    savePeople(nextPeople);
-    setSelectedPersonId(nextPeople[0]?.id || null);
-    setActiveTab("people");
-    closeLayer();
+    if (!person) return;
+    requestConfirm({
+      title: `${person.name}님을 삭제할까요?`,
+      message: `${person.name}님과 함께 담아둔 이야기와 관련 정보가 삭제됩니다.`,
+      confirmLabel: "삭제",
+      danger: true,
+      onConfirm: () => {
+        const nextPeople = peopleRef.current.filter((item) => item.id !== personId);
+        savePeople(nextPeople);
+        setSelectedPersonId(nextPeople[0]?.id || null);
+        setActiveTab("people");
+        closeLayer();
+        setToast("사람 기록을 삭제했어요.");
+        window.setTimeout(() => setToast(""), 2000);
+      }
+    });
   };
 
   const openEditPerson = (person: Person) => {
@@ -305,16 +408,25 @@ export default function App() {
   };
 
   const deleteGroup = (group: CustomGroup) => {
-    if (!window.confirm(`${group.name} 그룹을 삭제할까요?\n\n그룹에 속한 사람과 기록은 삭제되지 않습니다.`)) return;
-    const nextGroups = customGroups.filter((item) => item.id !== group.id);
-    const nextPeople = people.map((person) => ({
-      ...person,
-      groups: person.groups.filter((name) => name !== group.name)
-    }));
-    setCustomGroups(nextGroups);
-    setPeople(nextPeople);
-    persistVault(nextPeople, nextGroups);
-    if (peopleFilter === group.name) setPeopleFilter("전체");
+    requestConfirm({
+      title: `${group.name} 그룹을 삭제할까요?`,
+      message: "그룹에 속한 사람과 이야기는 삭제되지 않아요.",
+      confirmLabel: "삭제",
+      danger: true,
+      onConfirm: () => {
+        const nextGroups = groupsRef.current.filter((item) => item.id !== group.id);
+        const nextPeople = peopleRef.current.map((person) => ({
+          ...person,
+          groups: person.groups.filter((name) => name !== group.name)
+        }));
+        setCustomGroups(nextGroups);
+        setPeople(nextPeople);
+        persistVault(nextPeople, nextGroups);
+        if (peopleFilter === group.name) setPeopleFilter("전체");
+        setToast("그룹을 삭제했어요.");
+        window.setTimeout(() => setToast(""), 2000);
+      }
+    });
   };
 
   const handleImportBackup = (importedPeople: Person[], importedGroups: CustomGroup[]) => {
@@ -324,33 +436,33 @@ export default function App() {
   };
 
   const handleClearAllData = () => {
-    if (!window.confirm("모든 사람談 데이터를 삭제할까요? 암호화 vault 자체는 유지됩니다.")) return;
-    savePeople([]);
-    saveGroups([]);
-    setSelectedPersonId(null);
-    setFirstUsePromptDismissed(false);
+    requestConfirm({
+      title: "모든 데이터를 삭제할까요?",
+      message: "사람談에 저장된 사람, 이야기, 관련 정보가 삭제됩니다.\n암호화 vault 자체는 유지됩니다.",
+      confirmLabel: "모두 삭제",
+      danger: true,
+      onConfirm: () => {
+        savePeople([]);
+        saveGroups([]);
+        setSelectedPersonId(null);
+        setFirstUsePromptDismissed(false);
+        setToast("모든 데이터를 삭제했어요.");
+        window.setTimeout(() => setToast(""), 2000);
+      }
+    });
   };
 
   const openPerson = (personId: string) => {
+    rememberTabScroll();
     setSelectedPersonId(personId);
     pushLayer("detail");
   };
 
   const startCheckIn = (personId: string) => {
+    rememberTabScroll();
     setCheckInPersonId(personId);
     setActiveTab("checkin");
     setLayer("root");
-  };
-
-  const changeTabBySwipe = (deltaX: number) => {
-    if (layer !== "root" || storyInitialPersonId !== undefined || Math.abs(deltaX) < 70) return;
-    const tabs: AppTab[] = ["home", "people", "checkin", "settings"];
-    const currentIndex = tabs.indexOf(activeTab);
-    const nextIndex = deltaX > 0 ? currentIndex + 1 : currentIndex - 1;
-    const nextTab = tabs[nextIndex];
-    if (!nextTab) return;
-    setActiveTab(nextTab);
-    setCheckInPersonId(null);
   };
 
   if (!vaultKey) {
@@ -361,16 +473,8 @@ export default function App() {
   const shouldShowOnboarding = !appSettings.onboardingCompleted && people.length === 0 && layer === "root";
 
   return (
-    <div
-      className="min-h-screen bg-[#fff8ef] text-[#2f1b12]"
-      onTouchStart={(event) => { touchStartXRef.current = event.touches[0].clientX; }}
-      onTouchEnd={(event) => {
-        if (touchStartXRef.current === null) return;
-        changeTabBySwipe(event.changedTouches[0].clientX - touchStartXRef.current);
-        touchStartXRef.current = null;
-      }}
-    >
-      <main className="mx-auto min-h-screen w-full max-w-md px-4 pb-24 pt-5 md:max-w-3xl lg:max-w-5xl">
+    <div className="min-h-[100svh] bg-[#fff8ef] text-[#2f1b12]">
+      <main className="mx-auto min-h-[100svh] w-full max-w-md px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] md:max-w-3xl lg:max-w-5xl">
         {shouldShowOnboarding ? (
           <OnboardingView
             onComplete={() => {
@@ -461,6 +565,7 @@ export default function App() {
                 onSettingsChange={updateAppSettings}
                 onImport={handleImportBackup}
                 onClearAll={handleClearAllData}
+                onRequestConfirm={requestConfirm}
                 onLock={handleLock}
                 onVaultRekey={handleVaultRekey}
               />
@@ -469,10 +574,11 @@ export default function App() {
         )}
       </main>
 
-      {layer === "root" && people.length > 0 && (
+      {layer === "root" && people.length > 0 && !keyboardOpen && (
         <BottomNavigation
           activeTab={activeTab}
           onChangeTab={(tab) => {
+            rememberTabScroll();
             setActiveTab(tab);
             setCheckInPersonId(null);
           }}
@@ -506,9 +612,21 @@ export default function App() {
       )}
 
       {toast && (
-        <div className="fixed left-1/2 top-5 z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-semibold text-[#5a392a] shadow-soft">
+        <div className="fixed left-1/2 top-[calc(1.25rem+env(safe-area-inset-top))] z-[60] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-semibold text-[#5a392a] shadow-soft">
           {toast}
         </div>
+      )}
+
+      {confirmRequest && (
+        <ConfirmDialog
+          {...confirmRequest}
+          onCancel={() => setConfirmRequest(null)}
+          onConfirm={() => {
+            const action = confirmRequest.onConfirm;
+            setConfirmRequest(null);
+            action();
+          }}
+        />
       )}
     </div>
   );

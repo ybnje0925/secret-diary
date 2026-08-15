@@ -78,7 +78,7 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
           <div className="flex items-start justify-between pb-4 border-b border-slate-200">
             <div>
               <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full uppercase tracking-wider">1-Min Quick Review</span>
-              <h2 className="text-[20px] font-semibold text-slate-900 mt-2">{person.name}님과의 미팅 1분 전</h2>
+              <h2 className="mt-2 text-[20px] font-semibold text-slate-900">{person.name}님과 만나기 전 짧은 기억</h2>
             </div>
             <button id="close-review-modal-btn" onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 hover:bg-slate-100 rounded-full">
               <X className="w-5 h-5" />

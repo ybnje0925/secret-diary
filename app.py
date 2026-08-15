@@ -54,7 +54,7 @@ st.markdown("""
     
     .person-card-selected {
         background-color: #fff9f0;
-        border: 2px solid #ff6b6b;
+        border: 2px solid #d85b36;
         border-radius: 20px;
         padding: 16px;
         margin-bottom: 12px;
@@ -300,7 +300,7 @@ st.markdown("""
 <div class="notebook-header">
     <div style="display: flex; align-items: center; justify-content: space-between;">
         <div style="display: flex; align-items: center; gap: 14px;">
-            <div style="background-color: #ff6b6b; color: white; width: 48px; height: 48px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+            <div style="background-color: #d85b36; color: white; width: 48px; height: 48px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px;">
                 📓
             </div>
             <div>
@@ -361,7 +361,7 @@ with col_left:
         is_selected = (person["id"] == st.session_state["selected_id"])
         
         card_bg = "#fff9f0" if is_selected else "#ffffff"
-        border_color = "#ff6b6b" if is_selected else "#ece5d8"
+        border_color = "#d85b36" if is_selected else "#ece5d8"
         
         with st.container():
             c1, c2 = st.columns([1, 4])
@@ -376,7 +376,7 @@ with col_left:
                 st.caption(f"🏢 {person.get('company', '소속 미지정')} | 📞 {person.get('phone', '-')}")
                 st.caption(f"🗓️ 마지막 연락: {person.get('lastContactDate', '-')} ({person.get('lastContactMedium', '통화')})")
                 
-                if st.button(f"📖 {person['name']} 비밀노트 열기", key=f"btn_select_{person['id']}", use_container_width=True):
+                if st.button(f"📖 {person['name']} 이야기 열기", key=f"btn_select_{person['id']}", use_container_width=True):
                     st.session_state["selected_id"] = person["id"]
                     st.rerun()
             st.divider()
@@ -392,7 +392,7 @@ with col_right:
                 <div style="display: flex; gap: 12px; align-items: center;">
                     <span style="font-size: 40px;">{selected_person.get('avatarEmoji', '👤')}</span>
                     <div>
-                        <h2 style="margin: 0; font-size: 22px; color: #352f28;">{selected_person['name']}님의 비밀 다이어리</h2>
+                        <h2 style="margin: 0; font-size: 22px; color: #352f28;">{selected_person['name']}님의 사람담 이야기</h2>
                         <span class="pill-cat">{selected_person.get('category', '지인')}</span> | 🏢 {selected_person.get('company', '소속 없음')}
                     </div>
                 </div>
@@ -445,13 +445,13 @@ with col_right:
         # TAB 2: AI Voice/Text Conversation Analyzer
         with tab2:
             st.subheader("🎙️ 통화/대화 음성 녹음 또는 텍스트 AI 분석")
-            st.caption(f"Gemini AI가 대화 내용을 분석하여 {selected_person['name']}님의 비밀노트(자녀, 취미, 3줄 요약)를 자동 업데이트합니다.")
+            st.caption(f"Gemini AI가 대화 내용을 분석하여 {selected_person['name']}님의 사람담 이야기(자녀, 취미, 3줄 요약)를 자동 업데이트합니다.")
             
             script_input = st.text_area("✍️ 대화 스크립트/메모 직접 입력", placeholder="예: 오늘 민수 만났음. 첫째 민우가 초등학교 들어갔는데 태권도장 재미있게 다닌다고 함. 삼겹살 먹었고 다음 달 골프 모임 가기로 약속함.", height=100)
             
             audio_file = st.file_uploader("🎵 통화 녹음 오디오 파일 업로드 (선택)", type=["mp3", "wav", "m4a", "ogg", "webm"])
             
-            if st.button("🚀 AI 대화 분석 및 비밀노트 반영", type="primary", use_container_width=True):
+            if st.button("🚀 AI 대화 분석 및 사람담 이야기 반영", type="primary", use_container_width=True):
                 with st.spinner("용쨔 AI가 대화 내용을 정교하게 분석 중입니다..."):
                     audio_bytes = audio_file.read() if audio_file else None
                     mime_type = f"audio/{audio_file.name.split('.')[-1]}" if audio_file else None
@@ -482,7 +482,7 @@ with col_right:
                             selected_person["memo"] += f"\n• {insight}"
                             
                     save_data(st.session_state["people"])
-                    st.success("🎉 대화 분석 완료! 비밀노트가 성공적으로 업데이트 되었습니다.")
+                    st.success("🎉 대화 분석 완료! 사람담 이야기가 성공적으로 업데이트 되었습니다.")
                     st.rerun()
 
         # TAB 3: Edit Person Info

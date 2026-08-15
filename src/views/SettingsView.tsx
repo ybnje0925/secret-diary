@@ -14,7 +14,8 @@ import {
   X
 } from "lucide-react";
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ConfirmDialogOptions } from "../components/common/ConfirmDialog";
 import { CustomGroup, Person } from "../types";
 import { AppSettings } from "../utils/appSettings";
 import {
@@ -33,6 +34,7 @@ interface Props {
   onSettingsChange: (patch: Partial<AppSettings>) => void;
   onImport: (people: Person[], groups: CustomGroup[]) => void;
   onClearAll: () => void;
+  onRequestConfirm: (options: ConfirmDialogOptions & { onConfirm: () => void }) => void;
   onLock: () => void;
   onVaultRekey: (key: CryptoKey, data: VaultData) => void;
 }
@@ -45,6 +47,7 @@ export default function SettingsView({
   onSettingsChange,
   onImport,
   onClearAll,
+  onRequestConfirm,
   onLock,
   onVaultRekey
 }: Props) {
@@ -55,6 +58,21 @@ export default function SettingsView({
   const [restoreError, setRestoreError] = useState("");
   const [aiInfoOpen, setAiInfoOpen] = useState(false);
   const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    const onOverlayBack = (event: Event) => {
+      if (!pinModalOpen && !restoreBackup && !aiInfoOpen) return;
+      event.preventDefault();
+      setPinModalOpen(false);
+      setRestoreBackup(null);
+      setRestorePin("");
+      setRestoreError("");
+      setAiInfoOpen(false);
+    };
+
+    window.addEventListener("saramdam:overlay-back", onOverlayBack);
+    return () => window.removeEventListener("saramdam:overlay-back", onOverlayBack);
+  }, [aiInfoOpen, pinModalOpen, restoreBackup]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -90,17 +108,21 @@ export default function SettingsView({
   };
 
   const handlePlainExport = () => {
-    const confirmed = window.confirm(
-      "이 파일에는 사람과 관련된 개인정보가 포함될 수 있으며 암호화되지 않습니다.\n\n내보낼까요?"
-    );
-    if (!confirmed) return;
-    downloadJson(`saramdam-data-export-${todayString()}.json`, {
-      format: "saramdam-readable-export",
-      exportDate: new Date().toISOString(),
-      people,
-      customGroups
+    onRequestConfirm({
+      title: "읽을 수 있는 데이터 파일을 내보낼까요?",
+      message: "이 파일에는 사람과 관련된 개인정보가 포함될 수 있으며 암호화되지 않습니다.",
+      confirmLabel: "내보내기",
+      danger: true,
+      onConfirm: () => {
+        downloadJson(`saramdam-data-export-${todayString()}.json`, {
+          format: "saramdam-readable-export",
+          exportDate: new Date().toISOString(),
+          people,
+          customGroups
+        });
+        showToast("읽을 수 있는 데이터 파일을 내보냈어요.");
+      }
     });
-    showToast("읽을 수 있는 데이터 파일을 내보냈어요.");
   };
 
   const handleRestoreFile = (event: ChangeEvent<HTMLInputElement>) => {
@@ -111,17 +133,23 @@ export default function SettingsView({
     reader.onload = () => {
       try {
         const parsed = parseBackupFile(String(reader.result || ""));
-        if (!window.confirm("현재 기록이 백업 파일의 내용으로 변경될 수 있어요.\n\n복원할까요?")) return;
+        onRequestConfirm({
+          title: "백업 파일을 복원할까요?",
+          message: "현재 기록이 백업 파일의 내용으로 변경될 수 있어요.",
+          confirmLabel: "복원",
+          danger: true,
+          onConfirm: () => {
+            if (parsed.format === "plain") {
+              onImport(parsed.data.people, parsed.data.customGroups);
+              showToast("백업 데이터를 복원했어요.");
+              return;
+            }
 
-        if (parsed.format === "plain") {
-          onImport(parsed.data.people, parsed.data.customGroups);
-          showToast("백업 데이터를 복원했어요.");
-          return;
-        }
-
-        setRestoreBackup({ salt: parsed.salt, payload: parsed.payload });
-        setRestorePin("");
-        setRestoreError("");
+            setRestoreBackup({ salt: parsed.salt, payload: parsed.payload });
+            setRestorePin("");
+            setRestoreError("");
+          }
+        });
       } catch {
         showToast("백업 파일을 읽을 수 없어요.");
       }
@@ -146,10 +174,7 @@ export default function SettingsView({
   };
 
   const handleClearAll = () => {
-    const confirmed = window.confirm(
-      "모든 사람과 이야기를 삭제할까요?\n\n사람談에 저장된 사람, 이야기, 관련 정보가 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
-    );
-    if (confirmed) onClearAll();
+    onClearAll();
   };
 
   return (
@@ -278,7 +303,7 @@ export default function SettingsView({
       )}
 
       {toast && (
-        <div className="fixed left-1/2 top-5 z-[70] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-semibold text-[#5a392a] shadow-soft">
+        <div className="fixed left-1/2 top-[calc(1.25rem+env(safe-area-inset-top))] z-[70] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-full border border-[#ead8c9] bg-[#fffaf3] px-5 py-3 text-center text-sm font-semibold text-[#5a392a] shadow-soft">
           {toast}
         </div>
       )}
@@ -433,7 +458,7 @@ function RestorePinModal({
 
 function ModalShell({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-[80] flex items-end bg-black/30 px-4 pb-4 sm:items-center sm:justify-center">
+    <div className="fixed inset-0 z-[80] flex items-end bg-black/30 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:justify-center">
       <section className="w-full max-w-sm rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.16)]">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{title}</h2>

@@ -160,7 +160,7 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
-      <section onClick={(event) => event.stopPropagation()} className="mb-3 max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[22px] bg-[#fffaf3] p-4 pb-6 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
+      <section onClick={(event) => event.stopPropagation()} className="mb-[max(0.75rem,env(safe-area-inset-bottom))] max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[22px] bg-[#fffaf3] p-4 pb-6 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
         <div className="mx-auto mb-4 h-1 w-16 rounded-full bg-[#cdb7a7]" />
         <div className="mb-5 flex items-start justify-between">
           <div>

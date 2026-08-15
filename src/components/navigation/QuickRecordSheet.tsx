@@ -18,7 +18,7 @@ export default function QuickRecordSheet({ isOpen, onClose, onQuickCapture, onAd
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
-      <section onClick={(event) => event.stopPropagation()} className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
+      <section onClick={(event) => event.stopPropagation()} className="mb-[max(0.75rem,env(safe-area-inset-bottom))] w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
         <div className="mx-auto mb-4 h-1 w-16 rounded-full bg-[#cdb7a7]" />
         <div className="mb-5 flex items-start justify-between">
           <h2 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">오늘 누구의 이야기를<br />담을까요? 🧡</h2>

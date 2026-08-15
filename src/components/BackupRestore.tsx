@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { Person, CustomGroup } from "../types";
 import { Download, Upload, Trash2, KeyRound } from "lucide-react";
 import { encryptBackupPayload, decryptBackupPayload, parseBackupFile } from "../vault";
+import ConfirmDialog from "./common/ConfirmDialog";
 
 interface BackupRestoreProps {
   people: Person[];
@@ -26,6 +27,8 @@ export default function BackupRestore({
   const [pendingBackup, setPendingBackup] = useState<{ salt: string; payload: string } | null>(null);
   const [backupPin, setBackupPin] = useState("");
   const [backupError, setBackupError] = useState<string | null>(null);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
 
   // Export current data as an encrypted backup file — never plaintext, so a
   // leaked/misplaced backup file alone doesn't expose anyone's information.
@@ -63,14 +66,14 @@ export default function BackupRestore({
         const parsed = parseBackupFile(event.target?.result as string);
         if (parsed.format === "plain") {
           onImport(parsed.data.people, parsed.data.customGroups);
-          alert("성공적으로 백업 데이터를 가져왔습니다!");
+          setStatusMessage("백업 데이터를 가져왔어요.");
         } else {
           setBackupError(null);
           setBackupPin("");
           setPendingBackup({ salt: parsed.salt, payload: parsed.payload });
         }
       } catch (err) {
-        alert("파일을 분석하는 데 실패했습니다. 파일이 깨졌는지 확인해 주세요.");
+        setStatusMessage("파일을 읽을 수 없어요. 백업 파일을 확인해 주세요.");
       }
     };
     reader.readAsText(file);
@@ -86,7 +89,7 @@ export default function BackupRestore({
       onImport(data.people, data.customGroups);
       setPendingBackup(null);
       setBackupPin("");
-      alert("성공적으로 백업 데이터를 가져왔습니다!");
+      setStatusMessage("백업 데이터를 가져왔어요.");
     } catch (err) {
       setBackupError("이 백업 파일의 비밀번호가 일치하지 않습니다.");
     }
@@ -97,12 +100,7 @@ export default function BackupRestore({
   };
 
   const confirmClearAll = () => {
-    const doubleCheck = window.confirm(
-      "정말로 모든 지인 데이터와 대화 기록을 지우시겠습니까?\n이 작업은 되돌릴 수 없습니다. 삭제 전에 백업을 다운로드하시는 것을 추천합니다."
-    );
-    if (doubleCheck) {
-      onClearAll();
-    }
+    setClearConfirmOpen(true);
   };
 
   return (
@@ -181,6 +179,20 @@ export default function BackupRestore({
             <span className="text-[11px] text-rose-600 font-medium w-full">{backupError}</span>
           )}
         </form>
+      )}
+      {statusMessage && <p className="w-full text-[13px] font-medium text-slate-600">{statusMessage}</p>}
+      {clearConfirmOpen && (
+        <ConfirmDialog
+          title="모든 데이터를 삭제할까요?"
+          message="사람담에 저장된 사람, 이야기, 관련 정보가 삭제됩니다. 이 작업은 되돌릴 수 없어요."
+          confirmLabel="모두 삭제"
+          danger
+          onCancel={() => setClearConfirmOpen(false)}
+          onConfirm={() => {
+            setClearConfirmOpen(false);
+            onClearAll();
+          }}
+        />
       )}
     </div>
   );

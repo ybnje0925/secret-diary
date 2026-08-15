@@ -1,5 +1,5 @@
 import { Gift, MoreHorizontal, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { EventHistoryItem, EventType, Person } from "../../types";
 import { formatDateKo } from "../../utils/saramdam";
 
@@ -14,6 +14,18 @@ const eventTypes: EventType[] = ["기념일", "선물", "축의금", "조의금"
 export default function EventHistorySection({ person, onSaveEvent, onDeleteEvent }: Props) {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EventHistoryItem | "new" | null>(null);
+
+  useEffect(() => {
+    const onOverlayBack = (event: Event) => {
+      if (!editing && !menuId) return;
+      event.preventDefault();
+      setEditing(null);
+      setMenuId(null);
+    };
+
+    window.addEventListener("saramdam:overlay-back", onOverlayBack);
+    return () => window.removeEventListener("saramdam:overlay-back", onOverlayBack);
+  }, [editing, menuId]);
 
   return (
     <section className="space-y-3">
@@ -77,7 +89,7 @@ function EventEditor({ event, onClose, onSave }: { event: EventHistoryItem | nul
           onSave({ id: event?.id || `e_${Date.now()}`, date, type, amountOrGift: amountOrGift.trim(), note: note.trim() });
         }}
         onClick={(formEvent) => formEvent.stopPropagation()}
-        className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
+        className="mb-[max(0.75rem,env(safe-area-inset-bottom))] w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
       >
         <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{event ? "함께한 마음 수정" : "함께한 마음 기록"}</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">

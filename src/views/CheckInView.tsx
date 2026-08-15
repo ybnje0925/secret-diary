@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowLeft, Bell, Search, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "../components/common/Avatar";
 import ConversationStarter, { StarterSet } from "../components/checkin/ConversationStarter";
 import ConversationTopicCard, { ConversationTopic } from "../components/checkin/ConversationTopicCard";
@@ -28,6 +28,9 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
   const [isLoadingStarters, setIsLoadingStarters] = useState(false);
   const [starterError, setStarterError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const stepRef = useRef(step);
+  const startedFromInitialPersonRef = useRef(Boolean(initialPersonId));
+  const topicsBackTargetRef = useRef<"main" | "picker">("main");
 
   const recommended = useMemo(() => sortCheckInPeople(people), [people]);
   const selected = people.find((person) => person.id === selectedId) || null;
@@ -39,10 +42,40 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
 
   useEffect(() => {
     if (initialPersonId) {
+      startedFromInitialPersonRef.current = true;
       setSelectedId(initialPersonId);
       setStep("topics");
     }
   }, [initialPersonId]);
+
+  useEffect(() => {
+    stepRef.current = step;
+  }, [step]);
+
+  useEffect(() => {
+    const onRootBack = (event: Event) => {
+      const currentStep = stepRef.current;
+      if (currentStep === "main") return;
+      event.preventDefault();
+
+      if (currentStep === "starter") {
+        setStep("topics");
+        return;
+      }
+      if (currentStep === "topics") {
+        setSelectedTopic(null);
+        setStep(startedFromInitialPersonRef.current ? "main" : topicsBackTargetRef.current);
+        startedFromInitialPersonRef.current = false;
+        return;
+      }
+      if (currentStep === "picker") {
+        setStep("main");
+      }
+    };
+
+    window.addEventListener("saramdam:root-back", onRootBack);
+    return () => window.removeEventListener("saramdam:root-back", onRootBack);
+  }, []);
 
   useEffect(() => {
     if (step === "topics" && selected) {
@@ -56,10 +89,18 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
     }
   }, [step, selectedTopic?.id]);
 
-  const choosePerson = (personId: string) => {
+  const choosePerson = (personId: string, backTarget: "main" | "picker" = "main") => {
+    startedFromInitialPersonRef.current = false;
+    topicsBackTargetRef.current = backTarget;
     setSelectedId(personId);
     setSelectedTopic(null);
     setStep("topics");
+  };
+
+  const backFromTopics = () => {
+    setSelectedTopic(null);
+    setStep(startedFromInitialPersonRef.current ? "main" : topicsBackTargetRef.current);
+    startedFromInitialPersonRef.current = false;
   };
 
   const loadTopics = async (person: Person) => {
@@ -132,7 +173,7 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
         <div className="space-y-3">
           {searchedPeople.map((person) => (
             <div key={person.id}>
-              <PersonSelectCard person={person} onSelect={choosePerson} />
+              <PersonSelectCard person={person} onSelect={(personId) => choosePerson(personId, "picker")} />
             </div>
           ))}
         </div>
@@ -143,7 +184,7 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
   if (step === "topics" && selected) {
     return (
       <div className="space-y-5">
-        <button onClick={() => setStep("main")} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
+        <button onClick={backFromTopics} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
         <section>
           <p className="text-sm font-semibold text-[#d85b36]">{selected.name}에게</p>
           <h1 className="mt-1 text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">무슨 이야기를 해볼까요?</h1>

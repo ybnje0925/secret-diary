@@ -1,5 +1,5 @@
 import { MoreHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ContactMedium, InteractionHistory, Person } from "../../types";
 import { formatDateKo } from "../../utils/saramdam";
 
@@ -14,6 +14,18 @@ const mediumOptions: ContactMedium[] = ["식사", "통화", "카톡", "메시지
 export default function PersonTimeline({ person, onUpdateHistory, onDeleteHistory }: Props) {
   const [menuId, setMenuId] = useState<string | null>(null);
   const [editing, setEditing] = useState<InteractionHistory | null>(null);
+
+  useEffect(() => {
+    const onOverlayBack = (event: Event) => {
+      if (!editing && !menuId) return;
+      event.preventDefault();
+      setEditing(null);
+      setMenuId(null);
+    };
+
+    window.addEventListener("saramdam:overlay-back", onOverlayBack);
+    return () => window.removeEventListener("saramdam:overlay-back", onOverlayBack);
+  }, [editing, menuId]);
 
   if (!person.history.length) {
     return <p className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center text-xs text-[#7c6252]">아직 최근 이야기가 없어요.</p>;
@@ -73,7 +85,7 @@ function HistoryEditor({ history, onClose, onSave }: { history: InteractionHisto
           onSave({ ...history, date, medium, summary: summary.trim() });
         }}
         onClick={(event) => event.stopPropagation()}
-        className="mb-3 w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
+        className="mb-[max(0.75rem,env(safe-area-inset-bottom))] w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
       >
         <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">기록 수정</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">

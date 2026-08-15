@@ -1,15 +1,15 @@
 {
   "name": "사람談",
   "short_name": "사람談",
-  "description": "소중한 지인들의 정보를 관리하고 미팅 1분 전 빠르게 복습하는 비밀 다이어리",
+  "description": "소중한 사람들의 이야기를 담고, 다음 만남과 안부를 자연스럽게 이어주는 관계 기록 앱",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "lang": "ko",
-  "background_color": "#FAF7F2",
-  "theme_color": "#ff6b6b",
+  "background_color": "#fff8ef",
+  "theme_color": "#d85b36",
   "icons": [
     { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

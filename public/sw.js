@@ -1,5 +1,5 @@
-const CACHE_NAME = "yongjja-secret-note-v1";
-const APP_SHELL = ["/", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE_NAME = "saramdam-static-v1";
+const APP_SHELL = ["/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -20,15 +20,20 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
 
-  // Never cache API calls — always hit the network for fresh AI analysis results.
+  // Never cache API calls or user data flows. AI analysis and vault data must stay network/local-fresh.
   if (request.url.includes("/api/")) return;
   if (request.method !== "GET") return;
+
+  if (request.mode === "navigate") {
+    event.respondWith(fetch(request));
+    return;
+  }
 
   event.respondWith(
     caches.match(request).then((cached) => {
       const networkFetch = fetch(request)
         .then((response) => {
-          if (response.ok) {
+          if (response.ok && new URL(request.url).origin === self.location.origin) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }
