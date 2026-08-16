@@ -6,6 +6,8 @@ const VAULT_KEY = "yongjja_vault";
 const LEGACY_PEOPLE_KEY = "yongjja_people";
 const LEGACY_GROUPS_KEY = "yongjja_groups";
 
+export type VaultStorageState = "empty" | "ready" | "incomplete";
+
 export interface VaultData {
   people: Person[];
   customGroups: CustomGroup[];
@@ -80,6 +82,20 @@ export function hasVault(): boolean {
   return localStorage.getItem(VAULT_KEY) !== null && localStorage.getItem(SALT_KEY) !== null;
 }
 
+export function getVaultStorageState(): VaultStorageState {
+  const hasSalt = localStorage.getItem(SALT_KEY) !== null;
+  const hasPayload = localStorage.getItem(VAULT_KEY) !== null;
+  if (hasSalt && hasPayload) return "ready";
+  if (!hasSalt && !hasPayload) return "empty";
+  return "incomplete";
+}
+
+export function clearIncompleteVaultSetup(): void {
+  if (getVaultStorageState() !== "incomplete") return;
+  localStorage.removeItem(SALT_KEY);
+  localStorage.removeItem(VAULT_KEY);
+}
+
 // Pre-encryption installs stored data as plaintext under these keys — detect
 // it so first-time PIN setup can migrate it instead of discarding it.
 export function readLegacyPlaintextData(): VaultData {
@@ -111,9 +127,10 @@ export function clearLegacyPlaintextData(): void {
 // and seed the vault (optionally migrating pre-encryption plaintext data).
 export async function createVault(pin: string, initialData: VaultData): Promise<CryptoKey> {
   const salt = generateSalt();
-  localStorage.setItem(SALT_KEY, toBase64(salt));
   const key = await deriveKey(pin, salt);
-  await saveVault(key, initialData);
+  const payload = await encryptText(key, JSON.stringify(initialData));
+  localStorage.setItem(SALT_KEY, toBase64(salt));
+  localStorage.setItem(VAULT_KEY, payload);
   return key;
 }
 

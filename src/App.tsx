@@ -5,11 +5,10 @@ import BottomNavigation, { AppTab } from "./components/navigation/BottomNavigati
 import LockScreen from "./components/LockScreen";
 import GroupManagerSheet from "./components/people/GroupManagerSheet";
 import StoryCaptureSheet, { ApprovedMemoryItem, StorySavePayload } from "./components/person/StoryCaptureSheet";
-import { initialGroups, initialPeople } from "./demoData";
 import { CustomGroup, EventHistoryItem, InteractionHistory, Person } from "./types";
 import { AppSettings, loadAppSettings, saveAppSettings } from "./utils/appSettings";
 import { normalizeMemoryText } from "./utils/saramdam";
-import { saveVault, VaultData } from "./vault";
+import { clearIncompleteVaultSetup, getVaultStorageState, saveVault, VaultData } from "./vault";
 import AddPersonView from "./views/AddPersonView";
 import CheckInView from "./views/CheckInView";
 import HomeView from "./views/HomeView";
@@ -20,6 +19,7 @@ import OnboardingView from "./views/OnboardingView";
 
 type AppLayer = "root" | "detail" | "add";
 type ConfirmRequest = ConfirmDialogOptions & { onConfirm: () => void };
+type EntryStage = "unlock" | "onboarding" | "pin-setup";
 
 export default function App() {
   const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
@@ -37,6 +37,12 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [layer, setLayer] = useState<AppLayer>("root");
   const [appSettings, setAppSettings] = useState<AppSettings>(() => loadAppSettings());
+  const [entryStage, setEntryStage] = useState<EntryStage>(() => {
+    const vaultState = getVaultStorageState();
+    if (vaultState === "ready") return "unlock";
+    if (vaultState === "incomplete") clearIncompleteVaultSetup();
+    return loadAppSettings().onboardingCompleted ? "pin-setup" : "onboarding";
+  });
   const [firstUsePromptDismissed, setFirstUsePromptDismissed] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -59,8 +65,9 @@ export default function App() {
 
   useEffect(() => {
     if (!vaultKey) return;
-    window.history.replaceState({ layer: "root" }, "");
-    window.history.pushState({ layer: "root", guard: true }, "");
+    const initialLayer = historyLayerRef.current;
+    window.history.replaceState({ layer: initialLayer }, "");
+    window.history.pushState({ layer: initialLayer, guard: true }, "");
   }, [vaultKey]);
 
   useEffect(() => {
@@ -181,7 +188,7 @@ export default function App() {
     persistVault(peopleRef.current, nextGroups);
   };
 
-  const handleUnlocked = (key: CryptoKey, data: VaultData) => {
+  const handleUnlocked = (key: CryptoKey, data: VaultData, meta?: { created: boolean }) => {
     const loadedPeople = data.people as Person[];
     setVaultKey(key);
     setPeople(loadedPeople);
@@ -189,6 +196,23 @@ export default function App() {
     peopleRef.current = loadedPeople;
     groupsRef.current = data.customGroups;
     setSelectedPersonId(loadedPeople[0]?.id || null);
+    if (meta?.created && loadedPeople.length === 0) {
+      const nextSettings = { ...appSettings, onboardingCompleted: true };
+      setAppSettings(nextSettings);
+      saveAppSettings(nextSettings);
+      setEditingPerson(null);
+      setAddInitialName("");
+      setActiveTab("people");
+      setLayer("add");
+      historyLayerRef.current = "add";
+      layerRef.current = "add";
+      setToast("PIN 설정이 완료됐어요. 첫 번째 사람을 담아볼까요?");
+      window.setTimeout(() => setToast(""), 2600);
+      return;
+    }
+    if (meta?.created) {
+      updateAppSettings({ onboardingCompleted: true });
+    }
   };
 
   const updateAppSettings = (patch: Partial<AppSettings>) => {
@@ -240,12 +264,6 @@ export default function App() {
       events.forEach((eventName) => window.removeEventListener(eventName, resetAutoLockTimer));
     };
   }, [vaultKey, appSettings.autoLockMinutes]);
-
-  const handleLoadDemoData = () => {
-    savePeople(initialPeople);
-    saveGroups(initialGroups);
-    setSelectedPersonId(initialPeople[0]?.id || null);
-  };
 
   const handleSavePerson = (person: Person) => {
     const exists = people.some((item) => item.id === person.id);
@@ -466,24 +484,33 @@ export default function App() {
   };
 
   if (!vaultKey) {
-    return <LockScreen onUnlocked={handleUnlocked} />;
+    if (entryStage === "onboarding") {
+      return (
+        <main className="min-h-[100svh] bg-[#fff8ef] px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] text-[#2f1b12]">
+          <div className="mx-auto w-full max-w-md">
+            <OnboardingView
+              onComplete={() => {
+                updateAppSettings({ onboardingCompleted: true });
+                setEntryStage("pin-setup");
+              }}
+              onSkip={() => {
+                updateAppSettings({ onboardingCompleted: true });
+                setEntryStage("pin-setup");
+              }}
+            />
+          </div>
+        </main>
+      );
+    }
+    return <LockScreen initialMode={entryStage === "unlock" ? "unlock" : "setup"} onUnlocked={handleUnlocked} />;
   }
 
   const selectedPerson = people.find((person) => person.id === selectedPersonId) || null;
-  const shouldShowOnboarding = !appSettings.onboardingCompleted && people.length === 0 && layer === "root";
 
   return (
     <div className="min-h-[100svh] bg-[#fff8ef] text-[#2f1b12]">
       <main className="mx-auto min-h-[100svh] w-full max-w-md px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] md:max-w-3xl lg:max-w-5xl">
-        {shouldShowOnboarding ? (
-          <OnboardingView
-            onComplete={() => {
-              updateAppSettings({ onboardingCompleted: true });
-              openAddPerson();
-            }}
-            onSkip={() => updateAppSettings({ onboardingCompleted: true })}
-          />
-        ) : people.length === 0 && layer === "root" ? (
+        {people.length === 0 && layer === "root" ? (
           <div className="flex min-h-[70vh] flex-col justify-center space-y-4 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f8d8c7] text-3xl">🌿</div>
             <div>
@@ -496,7 +523,6 @@ export default function App() {
             {!firstUsePromptDismissed && (
               <button onClick={() => setFirstUsePromptDismissed(true)} className="rounded-full border border-[#ead8c9] bg-[#fffaf3] py-3 text-sm font-medium text-[#5a392a]">나중에 할게요</button>
             )}
-            <button onClick={handleLoadDemoData} className="text-xs font-medium text-[#8d5b45]">기존 demo data 표시</button>
           </div>
         ) : (
           <>
