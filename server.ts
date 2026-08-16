@@ -7,8 +7,28 @@ import { buildCheckInCandidates, buildCheckInTopics, buildLocalStarters } from "
 
 dotenv.config();
 
-const app = express();
+export const app = express();
 const PORT = Number(process.env.PORT) || 3001;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const PLACEHOLDER_KEYS = new Set(["MY_GEMINI_API_KEY", "YOUR_GEMINI_API_KEY", "your-gemini-api-key"]);
+
+type AiReason =
+  | "GEMINI_API_KEY_MISSING"
+  | "GEMINI_API_KEY_PLACEHOLDER"
+  | "GEMINI_REQUEST_FAILED"
+  | "GEMINI_EMPTY_RESPONSE"
+  | "INVALID_RESPONSE"
+  | "RATE_LIMIT"
+  | "MODEL_ERROR"
+  | "INVALID_API_KEY"
+  | "NO_CANDIDATES";
+
+type AiMeta = {
+  provider: "gemini" | "local";
+  model?: string;
+  fallback: boolean;
+  reason?: AiReason;
+};
 
 // Pasted chat text only now (no more audio uploads), so a small limit is plenty.
 app.use(express.json({ limit: "2mb" }));
@@ -20,8 +40,9 @@ let aiClient: GoogleGenAI | null = null;
 function getGeminiClient() {
   if (!aiClient) {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
-      console.warn("Warning: GEMINI_API_KEY environment variable is not set correctly.");
+    const keyStatus = getGeminiKeyStatus(apiKey);
+    if (!keyStatus.configured) {
+      console.warn(`[AI] GEMINI_API_KEY is not configured. reason=${keyStatus.reason}`);
     }
     aiClient = new GoogleGenAI({
       apiKey: apiKey || "",
@@ -35,9 +56,143 @@ function getGeminiClient() {
   return aiClient;
 }
 
-function shouldUseLocalCheckInFallback(apiKey?: string) {
-  return process.env.NODE_ENV !== "production" || !apiKey || apiKey === "MY_GEMINI_API_KEY";
+function getGeminiKeyStatus(apiKey = process.env.GEMINI_API_KEY) {
+  const trimmed = String(apiKey || "").trim();
+  if (!trimmed) return { configured: false, reason: "GEMINI_API_KEY_MISSING" as const };
+  if (PLACEHOLDER_KEYS.has(trimmed) || /placeholder|your[_-]?key|sample/i.test(trimmed)) {
+    return { configured: false, reason: "GEMINI_API_KEY_PLACEHOLDER" as const };
+  }
+  return { configured: true };
 }
+
+function localMeta(reason: AiReason): AiMeta {
+  return { provider: "local", fallback: true, reason };
+}
+
+function geminiMeta(): AiMeta {
+  return { provider: "gemini", model: GEMINI_MODEL, fallback: false };
+}
+
+function logAi(endpoint: string, meta: AiMeta, success: boolean) {
+  const modelText = meta.model ? ` model=${meta.model}` : "";
+  const reasonText = meta.reason ? ` reason=${meta.reason}` : "";
+  console.log(`[AI][${endpoint}] provider=${meta.provider}${modelText} fallback=${meta.fallback}${reasonText} success=${success}`);
+}
+
+function classifyAiError(error: any): AiReason {
+  const message = String(error?.message || error || "");
+  const status = Number(error?.status || error?.code || error?.response?.status || 0);
+  if (status === 401 || status === 403 || /API key not valid|permission|unauthorized|forbidden/i.test(message)) return "INVALID_API_KEY";
+  if (status === 429 || /quota|rate limit|resource exhausted/i.test(message)) return "RATE_LIMIT";
+  if (status === 404 || /model|not found|not supported/i.test(message)) return "MODEL_ERROR";
+  if (/empty response/i.test(message)) return "GEMINI_EMPTY_RESPONSE";
+  if (/JSON|parse|schema|invalid response/i.test(message)) return "INVALID_RESPONSE";
+  return "GEMINI_REQUEST_FAILED";
+}
+
+async function generateGeminiJson(endpoint: string, params: Omit<Parameters<GoogleGenAI["models"]["generateContent"]>[0], "model">) {
+  const keyStatus = getGeminiKeyStatus();
+  if (!keyStatus.configured) {
+    const error = new Error(keyStatus.reason);
+    (error as any).aiReason = keyStatus.reason;
+    throw error;
+  }
+
+  const ai = getGeminiClient();
+  const aiResponse = await ai.models.generateContent({
+    ...params,
+    model: GEMINI_MODEL
+  });
+  const resultText = aiResponse.text;
+  if (!resultText) {
+    const error = new Error("Gemini empty response");
+    (error as any).aiReason = "GEMINI_EMPTY_RESPONSE";
+    throw error;
+  }
+
+  try {
+    return JSON.parse(resultText);
+  } catch (error) {
+    const parseError = new Error("Gemini invalid JSON response");
+    (parseError as any).cause = error;
+    (parseError as any).aiReason = "INVALID_RESPONSE";
+    throw parseError;
+  }
+}
+
+function shouldUseLocalFallback(apiKey = process.env.GEMINI_API_KEY) {
+  return !getGeminiKeyStatus(apiKey).configured;
+}
+
+function errorReason(error: any): AiReason {
+  return error?.aiReason || classifyAiError(error);
+}
+
+app.get("/api/ai-health", async (_req, res) => {
+  const keyStatus = getGeminiKeyStatus();
+  if (!keyStatus.configured) {
+    const meta = localMeta(keyStatus.reason);
+    logAi("health", meta, true);
+    return res.json({
+      success: true,
+      configured: false,
+      provider: "local-fallback",
+      reason: keyStatus.reason,
+      endpoints: {
+        summarize: "fallback",
+        checkInSuggestions: "fallback",
+        checkInStarters: "fallback"
+      },
+      meta
+    });
+  }
+
+  try {
+    const ai = getGeminiClient();
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: "응답으로 OK만 반환",
+      config: { temperature: 0, maxOutputTokens: 8 }
+    });
+    const ok = String(response.text || "").trim().toUpperCase().includes("OK");
+    if (!ok) {
+      const error = new Error("Gemini health returned unexpected response");
+      (error as any).aiReason = "INVALID_RESPONSE";
+      throw error;
+    }
+    const meta = geminiMeta();
+    logAi("health", meta, true);
+    res.json({
+      success: true,
+      configured: true,
+      provider: "gemini",
+      model: GEMINI_MODEL,
+      endpoints: {
+        summarize: "ok",
+        checkInSuggestions: "ok",
+        checkInStarters: "ok"
+      },
+      meta
+    });
+  } catch (error: any) {
+    const reason = errorReason(error);
+    const meta = localMeta(reason);
+    logAi("health", meta, false);
+    res.json({
+      success: true,
+      configured: true,
+      provider: "local-fallback",
+      model: GEMINI_MODEL,
+      reason,
+      endpoints: {
+        summarize: "fallback",
+        checkInSuggestions: "fallback",
+        checkInStarters: "fallback"
+      },
+      meta
+    });
+  }
+});
 
 // REST API for quick-capture text analysis (STT one-liner memo or pasted
 // KakaoTalk/conversation text) using Gemini.
@@ -50,18 +205,20 @@ app.post("/api/summarize-text", async (req, res) => {
       return res.status(400).json({ success: false, error: "분석할 텍스트가 필요합니다." });
     }
 
-    const ai = getGeminiClient();
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey || apiKey === "MY_GEMINI_API_KEY") {
+    if (shouldUseLocalFallback(apiKey)) {
       // Return a simulated mock intelligence if API key is missing or is placeholder,
       // so the app remains perfectly functional in local dev previews!
-      console.log("Using simulated analysis because GEMINI_API_KEY is not configured.");
+      const reason = getGeminiKeyStatus(apiKey).reason || "GEMINI_API_KEY_MISSING";
+      const meta = localMeta(reason);
+      logAi("summarize", meta, true);
 
       const simulatedResponse = simulateAnalysis(scriptText, selectedPersonName, todayStr);
       return res.json({
         success: true,
         data: simulatedResponse,
-        simulated: true
+        simulated: true,
+        meta
       });
     }
 
@@ -122,8 +279,7 @@ app.post("/api/summarize-text", async (req, res) => {
       required: ["detectedPersonName", "lastContactDate", "lastContactMedium", "summary"]
     };
 
-    const aiResponse = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const parsedData = await generateGeminiJson("summarize", {
       contents: [{ text: prompt }],
       config: {
         responseMimeType: "application/json",
@@ -132,22 +288,26 @@ app.post("/api/summarize-text", async (req, res) => {
       }
     });
 
-    const resultText = aiResponse.text;
-    if (!resultText) {
-      throw new Error("Gemini API가 빈 응답을 반환했습니다.");
-    }
-
-    const parsedData = JSON.parse(resultText);
+    const meta = geminiMeta();
+    logAi("summarize", meta, true);
     res.json({
       success: true,
-      data: parsedData
+      data: parsedData,
+      meta
     });
 
   } catch (error: any) {
-    console.error("AI Analysis failed:", error);
-    res.status(500).json({
-      success: false,
-      error: error.message || "대화 내용 분석 도중 오류가 발생했습니다."
+    const { scriptText, selectedPersonName } = req.body || {};
+    const reason = errorReason(error);
+    const meta = localMeta(reason);
+    logAi("summarize", meta, false);
+    console.error("AI Analysis failed:", reason);
+    res.json({
+      success: true,
+      data: simulateAnalysis(String(scriptText || ""), selectedPersonName, new Date().toISOString().split("T")[0]),
+      fallback: true,
+      error: "AI 연결이 불안정해 저장된 규칙으로 정리했어요.",
+      meta
     });
   }
 });
@@ -162,22 +322,28 @@ app.post("/api/check-in-suggestions", async (req, res) => {
     const candidates = buildCheckInCandidates(person).slice(0, 8);
     const localTopics = buildCheckInTopics(person);
     if (candidates.length === 0 || localTopics.length === 0) {
-      return res.json({ success: true, data: { topics: [] } });
+      const meta: AiMeta = { provider: "local", fallback: false, reason: "NO_CANDIDATES" };
+      logAi("check-in", meta, true);
+      return res.json({ success: true, data: { topics: [] }, meta });
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (shouldUseLocalCheckInFallback(apiKey)) {
-      return res.json({ success: true, data: { topics: localTopics }, candidates, simulated: true });
+    if (shouldUseLocalFallback(apiKey)) {
+      const reason = getGeminiKeyStatus(apiKey).reason || "GEMINI_API_KEY_MISSING";
+      const meta = localMeta(reason);
+      logAi("check-in", meta, true);
+      return res.json({ success: true, data: { topics: localTopics }, candidates, simulated: true, meta });
     }
 
-    const ai = getGeminiClient();
     const prompt = `
 You are helping with Saramdam, a relationship memory app.
 The app already selected evidence-backed memory candidates.
 Your job is only to turn selected candidates into natural Korean check-in topics and short questions.
+Do not act as a fact finder. The app has already ranked what is worth recommending.
 
 Rules:
 - Use ONLY the provided candidates.
+- Prefer higher finalScore candidates, but return fewer topics when evidence is weak.
 - Do not invent names, family relations, ages, jobs, health status, or current situations.
 - If current status is unknown, clearly frame it as a past record.
 - Separate facts from suggested questions.
@@ -188,6 +354,7 @@ Rules:
 - Return at least 1 and at most 4 topics only when the evidence is enough.
 - Keep the candidateId from the selected candidate. Do not use candidates not listed.
 - Korean messages should sound like a real short KakaoTalk check-in, not a counselor or a formal business letter.
+- suggestedQuestion must be directly usable as a message idea and must not state unverified outcomes.
 
 Person context:
 ${JSON.stringify({ name: person.name, category: person.category, groups: person.groups, company: person.company, lastContactDate: person.lastContactDate })}
@@ -232,27 +399,31 @@ ${JSON.stringify(candidates.map(({ id, text, sourceType, sourceDate, source, cat
       required: ["topics"]
     };
 
-    const aiResponse = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const parsed = await generateGeminiJson("check-in", {
       contents: [{ text: prompt }],
       config: { responseMimeType: "application/json", responseSchema, temperature: 0.2 }
     });
 
-    const parsed = JSON.parse(aiResponse.text || "{\"topics\":[]}");
     const topics = refineAiTopics(parsed.topics || [], localTopics);
-    res.json({ success: true, data: { topics: topics.length ? topics : localTopics }, candidates });
+    const meta = geminiMeta();
+    logAi("check-in", meta, true);
+    res.json({ success: true, data: { topics: topics.length ? topics : localTopics }, candidates, meta });
   } catch (error: any) {
-    console.error("Check-in suggestions failed:", error);
+    const reason = errorReason(error);
+    const meta = localMeta(reason);
+    logAi("check-in", meta, false);
+    console.error("Check-in suggestions failed:", reason);
     const fallbackPerson = req.body?.person;
     if (fallbackPerson?.name) {
       return res.json({
         success: true,
         data: { topics: buildCheckInTopics(fallbackPerson) },
         fallback: true,
-        error: error.message || "AI 안부 추천에 실패해 저장된 기록 기반 추천을 사용했습니다."
+        error: "AI 연결이 잠시 불안정해요. 저장된 기록으로 계속 사용할 수 있어요.",
+        meta
       });
     }
-    res.status(500).json({ success: false, error: error.message || "안부 주제를 불러오지 못했습니다." });
+    res.status(500).json({ success: false, error: "안부 주제를 불러오지 못했습니다.", meta });
   }
 });
 
@@ -264,11 +435,13 @@ app.post("/api/check-in-starters", async (req, res) => {
     }
 
     const apiKey = process.env.GEMINI_API_KEY;
-    if (shouldUseLocalCheckInFallback(apiKey)) {
-      return res.json({ success: true, data: buildLocalStarters(person, topic, tone), simulated: true });
+    if (shouldUseLocalFallback(apiKey)) {
+      const reason = getGeminiKeyStatus(apiKey).reason || "GEMINI_API_KEY_MISSING";
+      const meta = localMeta(reason);
+      logAi("starter", meta, true);
+      return res.json({ success: true, data: buildLocalStarters(person, topic, tone), simulated: true, meta });
     }
 
-    const ai = getGeminiClient();
     const prompt = `
 Create 3 Korean conversation starter messages for Saramdam.
 Use ONLY the selected topic and source. Do not add new facts.
@@ -288,6 +461,8 @@ Rules:
 - If topic is sensitive, be gentle and do not assume outcomes.
 - Do not mention facts not present in topic/source/person data.
 - Do not auto-send anything.
+- Keep each message short enough for KakaoTalk.
+- Avoid counselor-like wording, long greetings, and technical app language.
     `;
 
     const responseSchema = {
@@ -300,26 +475,30 @@ Rules:
       required: ["natural", "friendly", "polite"]
     };
 
-    const aiResponse = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const parsed = await generateGeminiJson("starter", {
       contents: [{ text: prompt }],
       config: { responseMimeType: "application/json", responseSchema, temperature: 0.4 }
     });
 
-    const parsed = JSON.parse(aiResponse.text || "{}");
-    res.json({ success: true, data: parsed });
+    const meta = geminiMeta();
+    logAi("starter", meta, true);
+    res.json({ success: true, data: parsed, meta });
   } catch (error: any) {
-    console.error("Check-in starters failed:", error);
+    const reason = errorReason(error);
+    const meta = localMeta(reason);
+    logAi("starter", meta, false);
+    console.error("Check-in starters failed:", reason);
     const { person, topic, tone } = req.body || {};
     if (person?.name && topic?.topic) {
       return res.json({
         success: true,
         data: buildLocalStarters(person, topic, tone),
         fallback: true,
-        error: error.message || "AI 문구 생성에 실패해 저장된 기록 기반 문구를 사용했습니다."
+        error: "AI 연결이 잠시 불안정해요. 저장된 기록으로 계속 사용할 수 있어요.",
+        meta
       });
     }
-    res.status(500).json({ success: false, error: error.message || "대화 시작 문구를 불러오지 못했습니다." });
+    res.status(500).json({ success: false, error: "대화 시작 문구를 불러오지 못했습니다.", meta });
   }
 });
 
@@ -557,9 +736,17 @@ async function startServer() {
     res.status(status).json({ success: false, error: message });
   });
 
+  if (process.env.VERCEL === "1") return;
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`[사람談] Server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+if (process.env.VERCEL === "1") {
+  console.log("[사람談] Express app exported for Vercel Functions.");
+} else {
+  startServer();
+}
+
+export default app;

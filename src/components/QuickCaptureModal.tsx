@@ -151,9 +151,14 @@ export default function QuickCaptureModal({
         );
       }
 
-      const data = await response.json();
+      let data: any;
+      try {
+        data = JSON.parse(await response.text());
+      } catch {
+        throw new Error("AI 서버 응답 형식이 올바르지 않아요. 잠시 후 다시 시도해 주세요.");
+      }
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "분석 요청 중 오류가 발생했습니다.");
+        throw new Error(data.error || "AI 연결이 잠시 불안정해요. 잠시 후 다시 시도해 주세요.");
       }
 
       setAiProposal(data.data);

@@ -4,6 +4,7 @@ import {
   ChevronRight,
   CloudDownload,
   CloudUpload,
+  Cpu,
   Database,
   FileDown,
   FlaskConical,
@@ -56,6 +57,25 @@ type TestNotificationScenario =
 
 type NotificationPermissionState = NotificationPermission | "unsupported";
 
+type AiHealthResult = {
+  success: boolean;
+  configured?: boolean;
+  provider?: string;
+  model?: string;
+  reason?: string;
+  endpoints?: {
+    summarize?: string;
+    checkInSuggestions?: string;
+    checkInStarters?: string;
+  };
+  meta?: {
+    provider?: string;
+    model?: string;
+    fallback?: boolean;
+    reason?: string;
+  };
+};
+
 export default function SettingsView({
   people,
   customGroups,
@@ -82,6 +102,10 @@ export default function SettingsView({
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>("default");
   const [notificationScenario, setNotificationScenario] = useState<TestNotificationScenario>("overdue");
   const [notificationStatus, setNotificationStatus] = useState("");
+  const [aiHealth, setAiHealth] = useState<AiHealthResult | null>(null);
+  const [aiHealthError, setAiHealthError] = useState("");
+  const [aiHealthCheckedAt, setAiHealthCheckedAt] = useState("");
+  const [aiHealthLoading, setAiHealthLoading] = useState(false);
 
   useEffect(() => {
     const onOverlayBack = (event: Event) => {
@@ -236,6 +260,32 @@ export default function SettingsView({
     });
   };
 
+  const handleCheckAiHealth = async () => {
+    if (!testToolsEnabled || aiHealthLoading) return;
+    setAiHealthLoading(true);
+    setAiHealthError("");
+    setAiHealth(null);
+    try {
+      const response = await fetch("/api/ai-health", { method: "GET" });
+      const text = await response.text();
+      let data: AiHealthResult;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("AI 상태 확인 응답 형식이 올바르지 않아요.");
+      }
+      if (!response.ok || !data.success) {
+        throw new Error("AI 상태 확인에 실패했어요.");
+      }
+      setAiHealth(data);
+      setAiHealthCheckedAt(formatDateTime(new Date()));
+    } catch (error: any) {
+      setAiHealthError(error?.message || "AI 상태 확인에 실패했어요.");
+    } finally {
+      setAiHealthLoading(false);
+    }
+  };
+
   const handleRequestNotificationPermission = async () => {
     if (!testToolsEnabled) return;
     if (!("Notification" in window)) {
@@ -369,6 +419,42 @@ export default function SettingsView({
           </div>
           <SettingButton icon={<Database />} label="테스트 데이터 생성" value="20명 · 400개 기록" onClick={handleCreateTestData} />
           <SettingButton icon={<Trash2 />} label="테스트 데이터 초기화" value="PIN 유지" danger onClick={handleClearTestData} />
+          <SettingButton icon={<Cpu />} label="AI 상태 확인" value={aiHealthLoading ? "확인 중" : "Gemini 연결 진단"} onClick={handleCheckAiHealth} />
+          {(aiHealth || aiHealthError) && (
+            <div className="border-b border-[#f0dfd1] px-3.5 py-3">
+              <h3 className="text-[13px] font-semibold text-[#2f1b12]">AI 연결 상태</h3>
+              {aiHealthError ? (
+                <p className="mt-2 text-[12px] leading-[1.5] text-[#b53c2f]">{aiHealthError}</p>
+              ) : aiHealth ? (
+                <dl className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1.5 text-[12px] leading-[1.5]">
+                  <dt className="font-medium text-[#8f7564]">Provider</dt>
+                  <dd className="font-semibold text-[#2f1b12]">{providerLabel(aiHealth.provider || aiHealth.meta?.provider)}</dd>
+                  <dt className="font-medium text-[#8f7564]">Model</dt>
+                  <dd className="text-[#5a392a]">{aiHealth.model || aiHealth.meta?.model || "-"}</dd>
+                  <dt className="font-medium text-[#8f7564]">API Key</dt>
+                  <dd className="text-[#5a392a]">{aiHealth.configured ? "정상" : "없음"}</dd>
+                  <dt className="font-medium text-[#8f7564]">이야기 정리</dt>
+                  <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.summarize)}</dd>
+                  <dt className="font-medium text-[#8f7564]">안부 추천</dt>
+                  <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.checkInSuggestions)}</dd>
+                  <dt className="font-medium text-[#8f7564]">안부 문구</dt>
+                  <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.checkInStarters)}</dd>
+                  {(aiHealth.reason || aiHealth.meta?.reason) && (
+                    <>
+                      <dt className="font-medium text-[#8f7564]">사유</dt>
+                      <dd className="text-[#b53c2f]">{reasonLabel(aiHealth.reason || aiHealth.meta?.reason || "")}</dd>
+                    </>
+                  )}
+                  {aiHealthCheckedAt && (
+                    <>
+                      <dt className="font-medium text-[#8f7564]">마지막 확인</dt>
+                      <dd className="text-[#5a392a]">{aiHealthCheckedAt}</dd>
+                    </>
+                  )}
+                </dl>
+              ) : null}
+            </div>
+          )}
           <SettingControl icon={<BellRing />} label="알림 상태">
             <span className="text-xs font-medium text-[#7c6252]">{notificationPermissionLabel(notificationPermission)}</span>
           </SettingControl>
@@ -635,6 +721,43 @@ function notificationPermissionLabel(permission: NotificationPermissionState) {
   if (permission === "denied") return "알림 차단됨";
   if (permission === "unsupported") return "지원 안 함";
   return "아직 선택하지 않음";
+}
+
+function providerLabel(provider?: string) {
+  if (provider === "gemini") return "Gemini";
+  if (provider === "local" || provider === "local-fallback") return "Local fallback";
+  return "-";
+}
+
+function endpointLabel(status?: string) {
+  if (status === "ok") return "정상";
+  if (status === "fallback") return "fallback";
+  return "-";
+}
+
+function reasonLabel(reason: string) {
+  const labels: Record<string, string> = {
+    GEMINI_API_KEY_MISSING: "GEMINI_API_KEY가 Preview 환경에 없습니다.",
+    GEMINI_API_KEY_PLACEHOLDER: "GEMINI_API_KEY가 placeholder 값입니다.",
+    GEMINI_REQUEST_FAILED: "Gemini 요청에 실패했습니다.",
+    GEMINI_EMPTY_RESPONSE: "Gemini가 빈 응답을 반환했습니다.",
+    INVALID_RESPONSE: "Gemini 응답 형식이 올바르지 않습니다.",
+    RATE_LIMIT: "Gemini quota 또는 rate limit에 걸렸습니다.",
+    MODEL_ERROR: "Gemini 모델명 또는 모델 접근에 문제가 있습니다.",
+    INVALID_API_KEY: "Gemini API Key가 잘못되었거나 권한이 없습니다.",
+    NO_CANDIDATES: "추천에 사용할 저장 기록이 부족합니다."
+  };
+  return labels[reason] || reason;
+}
+
+function formatDateTime(date: Date) {
+  return date.toLocaleString("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 function createTestNotificationPayload(scenario: TestNotificationScenario, people: Person[]) {

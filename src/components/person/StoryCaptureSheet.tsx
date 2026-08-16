@@ -61,15 +61,10 @@ export async function analyzeStoryTextForReview({
     window.clearTimeout(timeoutId);
   }
 
-  let data: any = null;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error("AI 응답을 읽지 못했어요. 그대로 기록하기는 계속 사용할 수 있어요.");
-  }
+  const data = await readAiJson(response, "AI 서버 응답 형식이 올바르지 않아요. 그대로 기록하기는 계속 사용할 수 있어요.");
 
   if (!response.ok || !data.success) {
-    throw new Error(data?.error || "AI가 이야기를 정리하지 못했어요.");
+    throw new Error(data?.error || "AI 연결이 잠시 불안정해요. 그대로 기록하기는 계속 사용할 수 있어요.");
   }
 
   const result = data.data || {};
@@ -384,6 +379,15 @@ function updateItem(index: number, patch: Partial<ApprovedMemoryItem>, setItems:
 function normalizeMedium(value: unknown): ContactMedium | null {
   if (value === "통화" || value === "카톡" || value === "식사" || value === "대면" || value === "메시지" || value === "기타") return value;
   return null;
+}
+
+async function readAiJson(response: Response, parseErrorMessage: string): Promise<any> {
+  const text = await response.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(parseErrorMessage);
+  }
 }
 
 function makeReviewItems(result: any, person: Person): ApprovedMemoryItem[] {
