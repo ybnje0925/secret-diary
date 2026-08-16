@@ -9,7 +9,7 @@ dotenv.config();
 
 export const app = express();
 const PORT = Number(process.env.PORT) || 3001;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const PLACEHOLDER_KEYS = new Set(["MY_GEMINI_API_KEY", "YOUR_GEMINI_API_KEY", "your-gemini-api-key"]);
 
 type AiReason =
@@ -151,13 +151,12 @@ app.get("/api/ai-health", async (_req, res) => {
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
-      contents: "응답으로 OK만 반환",
-      config: { temperature: 0, maxOutputTokens: 8 }
+      contents: [{ text: "Return exactly the plain text OK. Do not add anything else." }]
     });
-    const ok = String(response.text || "").trim().toUpperCase().includes("OK");
-    if (!ok) {
-      const error = new Error("Gemini health returned unexpected response");
-      (error as any).aiReason = "INVALID_RESPONSE";
+    const healthText = String(response.text || "").trim();
+    if (!healthText) {
+      const error = new Error("Gemini health returned empty response");
+      (error as any).aiReason = "GEMINI_EMPTY_RESPONSE";
       throw error;
     }
     const meta = geminiMeta();
@@ -284,7 +283,6 @@ app.post("/api/summarize-text", async (req, res) => {
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        temperature: 0.2
       }
     });
 
@@ -401,7 +399,7 @@ ${JSON.stringify(candidates.map(({ id, text, sourceType, sourceDate, source, cat
 
     const parsed = await generateGeminiJson("check-in", {
       contents: [{ text: prompt }],
-      config: { responseMimeType: "application/json", responseSchema, temperature: 0.2 }
+      config: { responseMimeType: "application/json", responseSchema }
     });
 
     const topics = refineAiTopics(parsed.topics || [], localTopics);
@@ -477,7 +475,7 @@ Rules:
 
     const parsed = await generateGeminiJson("starter", {
       contents: [{ text: prompt }],
-      config: { responseMimeType: "application/json", responseSchema, temperature: 0.4 }
+      config: { responseMimeType: "application/json", responseSchema }
     });
 
     const meta = geminiMeta();

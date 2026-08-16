@@ -2,7 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { CheckInRecommendationTopic } from "../src/utils/checkInRecommendations.js";
 import { buildCheckInCandidates, buildCheckInTopics, buildLocalStarters } from "../src/utils/checkInRecommendations.js";
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const PLACEHOLDER_KEYS = new Set(["MY_GEMINI_API_KEY", "YOUR_GEMINI_API_KEY", "your-gemini-api-key"]);
 
 export type AiReason =
@@ -186,13 +186,12 @@ export async function getAiHealthResult() {
   try {
     const response = await getGeminiClient().models.generateContent({
       model: GEMINI_MODEL,
-      contents: "응답으로 OK만 반환",
-      config: { temperature: 0, maxOutputTokens: 8 }
+      contents: [{ text: "Return exactly the plain text OK. Do not add anything else." }]
     });
-    const ok = String(response.text || "").trim().toUpperCase().includes("OK");
-    if (!ok) {
-      const error = new Error("Gemini health returned unexpected response");
-      (error as any).aiReason = "INVALID_RESPONSE";
+    const healthText = String(response.text || "").trim();
+    if (!healthText) {
+      const error = new Error("Gemini health returned empty response");
+      (error as any).aiReason = "GEMINI_EMPTY_RESPONSE";
       throw error;
     }
     const meta = geminiMeta();
@@ -258,7 +257,6 @@ export async function summarizeText(body: any) {
       config: {
         responseMimeType: "application/json",
         responseSchema: summarizeResponseSchema,
-        temperature: 0.2
       }
     });
     const meta = geminiMeta();
@@ -304,7 +302,7 @@ export async function checkInSuggestions(body: any) {
   try {
     const parsed = await generateGeminiJson({
       contents: [{ text: buildCheckInPrompt(person, candidates) }],
-      config: { responseMimeType: "application/json", responseSchema: checkInResponseSchema, temperature: 0.2 }
+      config: { responseMimeType: "application/json", responseSchema: checkInResponseSchema }
     });
     const topics = refineAiTopics(parsed.topics || [], localTopics);
     const meta = geminiMeta();
@@ -342,7 +340,7 @@ export async function checkInStarters(body: any) {
   try {
     const parsed = await generateGeminiJson({
       contents: [{ text: buildStarterPrompt(person, topic, tone) }],
-      config: { responseMimeType: "application/json", responseSchema: starterResponseSchema, temperature: 0.4 }
+      config: { responseMimeType: "application/json", responseSchema: starterResponseSchema }
     });
     const meta = geminiMeta();
     logAi("starter", meta, true);

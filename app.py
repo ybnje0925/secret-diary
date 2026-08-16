@@ -213,7 +213,7 @@ def analyze_with_gemini(script_text, person_name, audio_bytes=None, mime_type=No
             import google.generativeai as genai
 
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("gemini-3.6-flash")
             
             prompt = f"""
             당신은 친근하고 세심한 개인 비서 '용쨔'입니다.
