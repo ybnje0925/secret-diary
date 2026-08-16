@@ -8,6 +8,11 @@ export interface ConversationTopic {
   source: string;
   sensitivity: "normal" | "sensitive";
   suggestedQuestion: string;
+  candidateId?: string;
+  sourceType?: "history" | "memory" | "family" | "preference" | "event";
+  sourceDate?: string;
+  category?: string;
+  feedbackKey?: string;
 }
 
 interface Props {

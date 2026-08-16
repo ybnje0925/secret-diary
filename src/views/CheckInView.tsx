@@ -118,7 +118,7 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ person: buildPersonPayload(person) })
       });
-      const data = await safeJson(response);
+      const data = await readAiJson(response);
       if (!response.ok || !data.success) throw new Error(data.error || "안부 주제를 불러오지 못했어요.");
       const aiTopics = normalizeTopics(data.data?.topics || [], person);
       setTopics(aiTopics.length ? aiTopics : makeLocalTopics(person));
@@ -144,7 +144,7 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ person: buildPersonPayload(person), topic, tone })
       });
-      const data = await safeJson(response);
+      const data = await readAiJson(response);
       if (!response.ok || !data.success) throw new Error(data.error || "문구를 불러오지 못했어요.");
       setStarters(normalizeStarters(data.data, person, topic, tone));
     } catch (error: any) {
@@ -444,10 +444,11 @@ function dedupeTopics(topics: ConversationTopic[]) {
   });
 }
 
-async function safeJson(response: Response): Promise<any> {
+async function readAiJson(response: Response): Promise<any> {
+  const text = await response.text();
   try {
-    return await response.json();
+    return text ? JSON.parse(text) : {};
   } catch {
-    return {};
+    throw new Error("AI 서버 응답 형식이 올바르지 않아요.");
   }
 }
