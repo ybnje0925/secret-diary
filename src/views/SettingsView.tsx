@@ -1,13 +1,17 @@
 import {
   Bell,
+  BellRing,
   ChevronRight,
   CloudDownload,
   CloudUpload,
+  Database,
   FileDown,
+  FlaskConical,
   HelpCircle,
   Info,
   KeyRound,
   Lock,
+  Send,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -33,11 +37,24 @@ interface Props {
   appSettings: AppSettings;
   onSettingsChange: (patch: Partial<AppSettings>) => void;
   onImport: (people: Person[], groups: CustomGroup[]) => void;
+  onReplaceData: (people: Person[], groups: CustomGroup[]) => void;
   onClearAll: () => void;
   onRequestConfirm: (options: ConfirmDialogOptions & { onConfirm: () => void }) => void;
   onLock: () => void;
   onVaultRekey: (key: CryptoKey, data: VaultData) => void;
+  onOpenPerson: (personId: string) => void;
 }
+
+type TestNotificationScenario =
+  | "due"
+  | "overdue"
+  | "longTime"
+  | "eventTomorrow"
+  | "eventToday"
+  | "followUp"
+  | "general";
+
+type NotificationPermissionState = NotificationPermission | "unsupported";
 
 export default function SettingsView({
   people,
@@ -46,11 +63,15 @@ export default function SettingsView({
   appSettings,
   onSettingsChange,
   onImport,
+  onReplaceData,
   onClearAll,
   onRequestConfirm,
   onLock,
-  onVaultRekey
+  onVaultRekey,
+  onOpenPerson
 }: Props) {
+  const testToolsEnabled =
+    import.meta.env.VITE_ENABLE_TEST_TOOLS === "true";
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [restoreBackup, setRestoreBackup] = useState<{ salt: string; payload: string } | null>(null);
@@ -58,6 +79,9 @@ export default function SettingsView({
   const [restoreError, setRestoreError] = useState("");
   const [aiInfoOpen, setAiInfoOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>("default");
+  const [notificationScenario, setNotificationScenario] = useState<TestNotificationScenario>("overdue");
+  const [notificationStatus, setNotificationStatus] = useState("");
 
   useEffect(() => {
     const onOverlayBack = (event: Event) => {
@@ -73,6 +97,11 @@ export default function SettingsView({
     window.addEventListener("saramdam:overlay-back", onOverlayBack);
     return () => window.removeEventListener("saramdam:overlay-back", onOverlayBack);
   }, [aiInfoOpen, pinModalOpen, restoreBackup]);
+
+  useEffect(() => {
+    if (!testToolsEnabled) return;
+    setNotificationPermission(getNotificationPermissionState());
+  }, [testToolsEnabled]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -177,6 +206,75 @@ export default function SettingsView({
     onClearAll();
   };
 
+  const handleCreateTestData = () => {
+    if (!testToolsEnabled) return;
+    onRequestConfirm({
+      title: "테스트 데이터를 생성할까요?",
+      message: "현재 이 테스트 환경에 저장된 사람과 이야기 데이터가 테스트용 데이터로 교체됩니다.",
+      confirmLabel: "테스트 데이터 생성",
+      danger: true,
+      onConfirm: async () => {
+        const { createTestSeedData } = await import("../dev/testSeed");
+        const testData = createTestSeedData();
+        onReplaceData(testData.people, testData.customGroups);
+        showToast("테스트 데이터로 교체했어요.");
+      }
+    });
+  };
+
+  const handleClearTestData = () => {
+    if (!testToolsEnabled) return;
+    onRequestConfirm({
+      title: "테스트 데이터를 모두 비울까요?",
+      message: "테스트 환경에 저장된 사람과 이야기 데이터가 모두 삭제됩니다. PIN은 유지됩니다.",
+      confirmLabel: "테스트 데이터 초기화",
+      danger: true,
+      onConfirm: () => {
+        onReplaceData([], []);
+        showToast("테스트 데이터를 비웠어요.");
+      }
+    });
+  };
+
+  const handleRequestNotificationPermission = async () => {
+    if (!testToolsEnabled) return;
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      setNotificationStatus("현재 브라우저에서는 시스템 알림 테스트를 지원하지 않아요.");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+    setNotificationStatus(permission === "granted" ? "알림 권한이 허용됐어요." : "알림 권한이 허용되지 않았어요.");
+  };
+
+  const handleSendTestNotification = () => {
+    if (!testToolsEnabled) return;
+    if (!("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      setNotificationStatus("현재 브라우저에서는 시스템 알림 테스트를 지원하지 않아요.");
+      return;
+    }
+    if (Notification.permission !== "granted") {
+      setNotificationPermission(Notification.permission);
+      setNotificationStatus("먼저 알림 권한을 허용해주세요.");
+      return;
+    }
+
+    const payload = createTestNotificationPayload(notificationScenario, people);
+    const notification = new Notification(payload.title, {
+      body: payload.body,
+      tag: `saramdam-test-${notificationScenario}`,
+      data: { personId: payload.person?.id || "" }
+    });
+    notification.onclick = () => {
+      window.focus();
+      if (payload.person) onOpenPerson(payload.person.id);
+      notification.close();
+    };
+    setNotificationStatus(payload.person ? `${payload.person.name}님 기준으로 테스트 알림을 보냈어요.` : "조건에 맞는 테스트 데이터가 없어 일반 알림을 보냈어요.");
+  };
+
   return (
     <div className="space-y-5">
       <header className="space-y-1">
@@ -263,6 +361,41 @@ export default function SettingsView({
           <SettingButton icon={<Trash2 />} label="모든 데이터 삭제" value="되돌릴 수 없음" danger onClick={handleClearAll} />
         </div>
       </section>
+
+      {testToolsEnabled && (
+        <Section title="개발자 테스트">
+          <div className="border-b border-[#f0dfd1] px-3.5 py-3">
+            <p className="text-[12px] leading-[1.5] text-[#8f7564]">Preview 테스트 환경에서만 표시됩니다.</p>
+          </div>
+          <SettingButton icon={<Database />} label="테스트 데이터 생성" value="20명 · 400개 기록" onClick={handleCreateTestData} />
+          <SettingButton icon={<Trash2 />} label="테스트 데이터 초기화" value="PIN 유지" danger onClick={handleClearTestData} />
+          <SettingControl icon={<BellRing />} label="알림 상태">
+            <span className="text-xs font-medium text-[#7c6252]">{notificationPermissionLabel(notificationPermission)}</span>
+          </SettingControl>
+          <SettingButton icon={<Bell />} label="알림 권한 요청" value="직접 실행" onClick={handleRequestNotificationPermission} />
+          <SettingControl icon={<FlaskConical />} label="알림 유형">
+            <select
+              value={notificationScenario}
+              onChange={(event) => setNotificationScenario(event.target.value as TestNotificationScenario)}
+              className="max-w-[12rem] rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-medium text-[#5a392a] outline-none"
+            >
+              <option value="due">안부 주기 도래</option>
+              <option value="overdue">안부 주기 초과</option>
+              <option value="longTime">오래 연락 못한 사람</option>
+              <option value="eventTomorrow">기념일 D-1</option>
+              <option value="eventToday">기념일 당일</option>
+              <option value="followUp">지난 이야기 후속 확인</option>
+              <option value="general">일반 사람談 알림</option>
+            </select>
+          </SettingControl>
+          <SettingButton icon={<Send />} label="테스트 알림 보내기" value="브라우저 Notification" onClick={handleSendTestNotification} />
+          {notificationStatus && (
+            <div className="px-3.5 py-3 text-[12px] leading-[1.5] text-[#7c6252]">
+              {notificationStatus}
+            </div>
+          )}
+        </Section>
+      )}
 
       {pinModalOpen && (
         <PinChangeModal
@@ -490,6 +623,149 @@ function PinInput({ label, value, autoFocus, onChange }: { label: string; value:
       />
     </label>
   );
+}
+
+function getNotificationPermissionState(): NotificationPermissionState {
+  if (!("Notification" in window)) return "unsupported";
+  return Notification.permission;
+}
+
+function notificationPermissionLabel(permission: NotificationPermissionState) {
+  if (permission === "granted") return "알림 허용됨";
+  if (permission === "denied") return "알림 차단됨";
+  if (permission === "unsupported") return "지원 안 함";
+  return "아직 선택하지 않음";
+}
+
+function createTestNotificationPayload(scenario: TestNotificationScenario, people: Person[]) {
+  const today = new Date();
+  const peopleWithDays = people
+    .filter((person) => person.lastContactDate)
+    .map((person) => ({ person, daysSinceContact: daysSince(person.lastContactDate, today) }));
+
+  if (scenario === "due") {
+    const match = peopleWithDays.find(({ person, daysSinceContact }) => person.remindIntervalDays === daysSinceContact);
+    return contactPayload(match?.person, match?.daysSinceContact);
+  }
+
+  if (scenario === "overdue") {
+    const match = peopleWithDays
+      .filter(({ person, daysSinceContact }) => daysSinceContact >= (person.remindIntervalDays || 0))
+      .sort((a, b) => (a.daysSinceContact - (a.person.remindIntervalDays || 0)) - (b.daysSinceContact - (b.person.remindIntervalDays || 0)))[0];
+    return contactPayload(match?.person, match?.daysSinceContact);
+  }
+
+  if (scenario === "longTime") {
+    const match = peopleWithDays.sort((a, b) => b.daysSinceContact - a.daysSinceContact)[0];
+    return contactPayload(match?.person, match?.daysSinceContact, "longTime");
+  }
+
+  if (scenario === "eventTomorrow" || scenario === "eventToday") {
+    const dayOffset = scenario === "eventTomorrow" ? 1 : 0;
+    const match = findEventByOffset(people, today, dayOffset);
+    if (match && scenario === "eventTomorrow") {
+      return {
+        person: match.person,
+        title: `내일은 ${match.person.name}님의 ${eventDisplayName(match.event.note, match.event.amountOrGift)}이에요 🎂`,
+        body: "잊기 전에 마음을 준비해볼까요?"
+      };
+    }
+    if (match) {
+      return {
+        person: match.person,
+        title: `오늘 ${match.person.name}님에게 마음을 전해볼까요?`,
+        body: "사람談에 기억해둔 특별한 날이에요."
+      };
+    }
+  }
+
+  if (scenario === "followUp") {
+    const match = findFollowUpStory(people);
+    if (match) {
+      return {
+        person: match.person,
+        title: "지난 이야기를 이어볼까요? 💬",
+        body: `${match.person.name}님이 지난번에 ${match.topic} 이야기를 했어요.`
+      };
+    }
+  }
+
+  const fallbackPerson = people[0];
+  return {
+    person: fallbackPerson,
+    title: fallbackPerson ? `${fallbackPerson.name}님에게 안부를 건네볼까요?` : "사람談 테스트 알림",
+    body: fallbackPerson ? "가볍게 떠오른 사람에게 마음을 남겨보세요." : "테스트 데이터 생성 후 다시 시도해보세요."
+  };
+}
+
+function contactPayload(person?: Person, daysSinceContact?: number, variant?: "longTime") {
+  if (!person || typeof daysSinceContact !== "number") {
+    return {
+      person,
+      title: "사람談 테스트 알림",
+      body: "조건에 맞는 테스트 인물을 찾지 못했어요."
+    };
+  }
+
+  return {
+    person,
+    title: variant === "longTime" ? `${person.name}님과 오래 연락하지 못했어요 🌿` : `${person.name}님에게 안부를 건넬 때가 되었어요 🌿`,
+    body: `마지막으로 이야기한 지 ${daysSinceContact}일이 지났어요.`
+  };
+}
+
+function findEventByOffset(people: Person[], referenceDate: Date, daysOffset: number) {
+  const target = new Date(referenceDate);
+  target.setDate(target.getDate() + daysOffset);
+  const targetMonth = target.getMonth();
+  const targetDate = target.getDate();
+
+  for (const person of people) {
+    const event = person.eventsHistory.find((item) => {
+      const eventDate = new Date(item.date);
+      return eventDate.getMonth() === targetMonth && eventDate.getDate() === targetDate;
+    });
+    if (event) return { person, event };
+  }
+
+  return null;
+}
+
+function findFollowUpStory(people: Person[]) {
+  const keywords = [
+    "복식대회",
+    "하프마라톤",
+    "캠핑장 예약",
+    "어린이집 입학",
+    "입학식",
+    "검진",
+    "제주도 여행",
+    "출장 결과",
+    "공연 후기",
+    "면접 결과",
+    "가족여행"
+  ];
+
+  for (const keyword of keywords) {
+    for (const person of people) {
+      const story = person.history.find((item) => item.summary.includes(keyword));
+      if (story) return { person, topic: keyword };
+    }
+  }
+
+  return null;
+}
+
+function eventDisplayName(note: string, amountOrGift: string) {
+  if (note.includes("생일") || amountOrGift.includes("생일")) return "생일";
+  if (note.includes("입학")) return "입학식";
+  if (note.includes("공연")) return "공연";
+  return amountOrGift || "기념일";
+}
+
+function daysSince(dateText: string, referenceDate: Date) {
+  const date = new Date(dateText);
+  return Math.floor((referenceDate.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function todayString() {
