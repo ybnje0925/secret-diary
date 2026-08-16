@@ -12,15 +12,26 @@ export type AiReason =
   | "GEMINI_EMPTY_RESPONSE"
   | "INVALID_RESPONSE"
   | "RATE_LIMIT"
+  | "QUOTA_EXCEEDED"
   | "MODEL_ERROR"
+  | "MODEL_NOT_FOUND"
   | "INVALID_API_KEY"
+  | "PERMISSION_DENIED"
   | "NO_CANDIDATES";
+
+export type GeminiErrorDiagnostics = {
+  httpStatus?: number;
+  googleErrorCode?: string | number;
+  googleErrorStatus?: string;
+  message?: string;
+};
 
 export type AiMeta = {
   provider: "gemini" | "local";
   model?: string;
   fallback: boolean;
   reason?: AiReason;
+  diagnostics?: GeminiErrorDiagnostics;
 };
 
 let aiClient: GoogleGenAI | null = null;
@@ -44,8 +55,8 @@ export function getGeminiKeyStatus(apiKey = process.env.GEMINI_API_KEY) {
   return { configured: true };
 }
 
-export function localMeta(reason: AiReason): AiMeta {
-  return { provider: "local", fallback: true, reason };
+export function localMeta(reason: AiReason, diagnostics?: GeminiErrorDiagnostics): AiMeta {
+  return { provider: "local", fallback: true, reason, diagnostics };
 }
 
 function geminiMeta(): AiMeta {
@@ -58,12 +69,62 @@ export function logAi(endpoint: string, meta: AiMeta, success: boolean) {
   console.log(`[AI][${endpoint}] provider=${meta.provider}${modelText} fallback=${meta.fallback}${reasonText} success=${success}`);
 }
 
+function sanitizeGeminiMessage(message: string) {
+  return message
+    .replace(/AIza[0-9A-Za-z_-]{20,}/g, "[redacted-api-key]")
+    .replace(/key=([0-9A-Za-z_-]+)/gi, "key=[redacted]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 320);
+}
+
+function pickGoogleErrorPayload(error: any) {
+  if (error?.error?.error) return error.error.error;
+  if (error?.error) return error.error;
+  if (error?.response?.data?.error) return error.response.data.error;
+  if (error?.details?.error) return error.details.error;
+
+  const message = String(error?.message || "");
+  const jsonMatch = message.match(/\{[\s\S]*"error"[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return parsed?.error || parsed;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+export function extractGeminiErrorDiagnostics(error: any): GeminiErrorDiagnostics {
+  const payload = pickGoogleErrorPayload(error);
+  const httpStatus = Number(error?.status || error?.response?.status || payload?.code || 0) || undefined;
+  const googleErrorCode = payload?.code ?? error?.code;
+  const googleErrorStatus = payload?.status || error?.statusText || error?.response?.statusText;
+  const rawMessage = String(payload?.message || error?.message || error || "");
+
+  return {
+    httpStatus,
+    googleErrorCode,
+    googleErrorStatus,
+    message: sanitizeGeminiMessage(rawMessage)
+  };
+}
+
 function classifyAiError(error: any): AiReason {
-  const message = String(error?.message || error || "");
-  const status = Number(error?.status || error?.code || error?.response?.status || 0);
-  if (status === 401 || status === 403 || /API key not valid|permission|unauthorized|forbidden/i.test(message)) return "INVALID_API_KEY";
-  if (status === 429 || /quota|rate limit|resource exhausted/i.test(message)) return "RATE_LIMIT";
-  if (status === 404 || /model|not found|not supported/i.test(message)) return "MODEL_ERROR";
+  const diagnostics = extractGeminiErrorDiagnostics(error);
+  const message = diagnostics.message || "";
+  const status = diagnostics.httpStatus || 0;
+  const googleStatus = diagnostics.googleErrorStatus || "";
+  if (/API key not valid|invalid api key|API_KEY_INVALID/i.test(message)) return "INVALID_API_KEY";
+  if (status === 401) return "INVALID_API_KEY";
+  if (googleStatus === "PERMISSION_DENIED" || status === 403 || /permission denied|forbidden|unauthorized/i.test(message)) return "PERMISSION_DENIED";
+  if (googleStatus === "NOT_FOUND" || status === 404 || /model .*not found|not found|not supported/i.test(message)) return "MODEL_NOT_FOUND";
+  if (googleStatus === "RESOURCE_EXHAUSTED" || status === 429) {
+    if (/quota|exceeded/i.test(message)) return "QUOTA_EXCEEDED";
+    return "RATE_LIMIT";
+  }
   if (/empty response/i.test(message)) return "GEMINI_EMPTY_RESPONSE";
   if (/JSON|parse|schema|invalid response/i.test(message)) return "INVALID_RESPONSE";
   return "GEMINI_REQUEST_FAILED";
@@ -150,14 +211,23 @@ export async function getAiHealthResult() {
     };
   } catch (error) {
     const reason = errorReason(error);
-    const meta = localMeta(reason);
+    const diagnostics = extractGeminiErrorDiagnostics(error);
+    const meta = localMeta(reason, diagnostics);
     logAi("health", meta, false);
+    console.error("[AI][health] gemini_error", JSON.stringify({
+      reason,
+      httpStatus: diagnostics.httpStatus,
+      googleErrorCode: diagnostics.googleErrorCode,
+      googleErrorStatus: diagnostics.googleErrorStatus,
+      message: diagnostics.message
+    }));
     return {
       success: true,
       configured: true,
       provider: "local-fallback",
       model: GEMINI_MODEL,
       reason,
+      diagnostics,
       endpoints: {
         summarize: "fallback",
         checkInSuggestions: "fallback",

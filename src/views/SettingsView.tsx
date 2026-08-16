@@ -57,12 +57,20 @@ type TestNotificationScenario =
 
 type NotificationPermissionState = NotificationPermission | "unsupported";
 
+type AiDiagnostics = {
+  httpStatus?: number;
+  googleErrorCode?: string | number;
+  googleErrorStatus?: string;
+  message?: string;
+};
+
 type AiHealthResult = {
   success: boolean;
   configured?: boolean;
   provider?: string;
   model?: string;
   reason?: string;
+  diagnostics?: AiDiagnostics;
   endpoints?: {
     summarize?: string;
     checkInSuggestions?: string;
@@ -73,6 +81,7 @@ type AiHealthResult = {
     model?: string;
     fallback?: boolean;
     reason?: string;
+    diagnostics?: AiDiagnostics;
   };
 };
 
@@ -446,6 +455,7 @@ export default function SettingsView({
                       <dd className="text-[#b53c2f]">{reasonLabel(aiHealth.reason || aiHealth.meta?.reason || "")}</dd>
                     </>
                   )}
+                  <AiDiagnosticsRows diagnostics={aiHealth.diagnostics || aiHealth.meta?.diagnostics} />
                   {aiHealthCheckedAt && (
                     <>
                       <dt className="font-medium text-[#8f7564]">마지막 확인</dt>
@@ -736,6 +746,22 @@ function endpointLabel(status?: string) {
   return "-";
 }
 
+function AiDiagnosticsRows({ diagnostics }: { diagnostics?: AiDiagnostics }) {
+  if (!diagnostics) return null;
+  return (
+    <>
+      <dt className="font-medium text-[#8f7564]">Gemini HTTP</dt>
+      <dd className="text-[#5a392a]">{diagnostics.httpStatus || "-"}</dd>
+      <dt className="font-medium text-[#8f7564]">Google code</dt>
+      <dd className="text-[#5a392a]">{diagnostics.googleErrorCode || "-"}</dd>
+      <dt className="font-medium text-[#8f7564]">Error status</dt>
+      <dd className="text-[#5a392a]">{diagnostics.googleErrorStatus || "-"}</dd>
+      <dt className="font-medium text-[#8f7564]">Error message</dt>
+      <dd className="break-words text-[#5a392a]">{diagnostics.message || "-"}</dd>
+    </>
+  );
+}
+
 function reasonLabel(reason: string) {
   const labels: Record<string, string> = {
     GEMINI_API_KEY_MISSING: "GEMINI_API_KEY가 Preview 환경에 없습니다.",
@@ -744,8 +770,11 @@ function reasonLabel(reason: string) {
     GEMINI_EMPTY_RESPONSE: "Gemini가 빈 응답을 반환했습니다.",
     INVALID_RESPONSE: "Gemini 응답 형식이 올바르지 않습니다.",
     RATE_LIMIT: "Gemini quota 또는 rate limit에 걸렸습니다.",
+    QUOTA_EXCEEDED: "Gemini quota가 초과되었습니다.",
     MODEL_ERROR: "Gemini 모델명 또는 모델 접근에 문제가 있습니다.",
+    MODEL_NOT_FOUND: "Gemini 모델을 찾을 수 없거나 접근할 수 없습니다.",
     INVALID_API_KEY: "Gemini API Key가 잘못되었거나 권한이 없습니다.",
+    PERMISSION_DENIED: "Gemini API Key 권한이 거부되었습니다.",
     NO_CANDIDATES: "추천에 사용할 저장 기록이 부족합니다."
   };
   return labels[reason] || reason;
