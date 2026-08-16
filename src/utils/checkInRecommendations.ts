@@ -1,5 +1,5 @@
 import type { Person } from "../types";
-import { daysSince, formatDateKo, normalizeMemoryText } from "./saramdam";
+import { daysSince, formatDateKo, normalizeMemoryText } from "./saramdam.js";
 
 export type CheckInSourceType = "history" | "memory" | "family" | "preference" | "event";
 export type CheckInSensitivity = "normal" | "sensitive";

@@ -267,12 +267,13 @@ export default function SettingsView({
     setAiHealth(null);
     try {
       const response = await fetch("/api/ai-health", { method: "GET" });
+      const contentType = response.headers.get("content-type") || "unknown";
       const text = await response.text();
       let data: AiHealthResult;
       try {
         data = JSON.parse(text);
       } catch {
-        throw new Error("AI 상태 확인 응답 형식이 올바르지 않아요.");
+        throw new Error(`AI 상태 API가 JSON이 아닌 응답을 반환했습니다. (status ${response.status}, ${contentType})`);
       }
       if (!response.ok || !data.success) {
         throw new Error("AI 상태 확인에 실패했어요.");
