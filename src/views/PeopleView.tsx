@@ -1,10 +1,11 @@
 import { Plus, Search, SlidersHorizontal, Users } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { CustomGroup, Person } from "../types";
 import PersonCard from "../components/person/PersonCard";
 import { daysSince, getLastStoryDate, getSearchReason, primaryCategoryLabels } from "../utils/saramdam";
 
 type SortMode = "story" | "name" | "recentContact" | "longTime" | "recentAdded";
+export type PeopleSortMode = SortMode;
 
 interface Props {
   people: Person[];
@@ -16,6 +17,8 @@ interface Props {
   onOpenPerson: (personId: string) => void;
   onAddPerson: (initialName?: string) => void;
   onManageGroups: () => void;
+  sortMode: PeopleSortMode;
+  onSortModeChange: (mode: PeopleSortMode) => void;
 }
 
 const sortLabels: Record<SortMode, string> = {
@@ -35,9 +38,10 @@ export default function PeopleView({
   onFilterChange,
   onOpenPerson,
   onAddPerson,
-  onManageGroups
+  onManageGroups,
+  sortMode,
+  onSortModeChange
 }: Props) {
-  const [sortMode, setSortMode] = useState<SortMode>("story");
   const chips = useMemo(() => ["전체", ...primaryCategoryLabels, ...customGroups.map((group) => group.name)], [customGroups]);
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -113,7 +117,7 @@ export default function PeopleView({
           </button>
           <label className="inline-flex items-center gap-1 rounded-full border border-[#ead8c9] bg-white px-2.5 py-1.5 text-xs font-medium text-[#5a392a]">
             <SlidersHorizontal className="h-4 w-4" />
-            <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)} className="bg-transparent text-xs font-medium outline-none">
+            <select value={sortMode} onChange={(event) => onSortModeChange(event.target.value as PeopleSortMode)} className="bg-transparent text-xs font-medium outline-none">
               {(Object.keys(sortLabels) as SortMode[]).map((mode) => <option key={mode} value={mode}>{sortLabels[mode]}</option>)}
             </select>
           </label>

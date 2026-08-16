@@ -8,7 +8,7 @@ interface Props {
 }
 
 function getMemoryIcon(text: string) {
-  return /가족|배우자|아내|남편|딸|아들|자녀|아이/.test(text) ? "👨‍👩‍👧" : "🌿";
+  return /가족|배우자|아내|남편|딸|아들|자녀|아이/.test(text) ? "👨‍👩‍👧" : "🤚";
 }
 
 export default function MemorySummaryCard({ person, onEdit }: Props) {

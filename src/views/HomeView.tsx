@@ -10,11 +10,11 @@ import { daysSince } from "../utils/saramdam";
 interface Props {
   people: Person[];
   onOpenPerson: (personId: string) => void;
-  onAddPerson: () => void;
   onStartCheckIn: (personId: string) => void;
+  onViewLongTimePeople: () => void;
 }
 
-export default function HomeView({ people, onOpenPerson, onAddPerson, onStartCheckIn }: Props) {
+export default function HomeView({ people, onOpenPerson, onStartCheckIn, onViewLongTimePeople }: Props) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const alertCount = people.filter((person) => daysSince(person.lastContactDate) >= (person.remindIntervalDays || 60)).length;
 
@@ -33,7 +33,7 @@ export default function HomeView({ people, onOpenPerson, onAddPerson, onStartChe
 
       <TodayPersonCard people={people} onOpenPerson={onOpenPerson} onStartCheckIn={onStartCheckIn} />
       <RecentStories people={people} onOpenPerson={onOpenPerson} />
-      <LongTimeNoSee people={people} onOpenPerson={onOpenPerson} onAddPerson={onAddPerson} />
+      <LongTimeNoSee people={people} onOpenPerson={onOpenPerson} onViewAll={onViewLongTimePeople} />
 
       {notificationsOpen && (
         <NotificationSheet people={people} onClose={() => setNotificationsOpen(false)} onOpenPerson={onOpenPerson} onStartCheckIn={onStartCheckIn} />

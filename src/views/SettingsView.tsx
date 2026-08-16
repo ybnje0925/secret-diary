@@ -188,17 +188,20 @@ export default function SettingsView({
         <SettingButton icon={<Lock />} label="앱 잠금" value="지금 잠그기" onClick={onLock} />
         <SettingButton icon={<KeyRound />} label="PIN 변경" value="현재 PIN 확인 후 변경" onClick={() => setPinModalOpen(true)} />
         <SettingControl icon={<ShieldCheck />} label="자동 잠금">
-          <select
-            value={appSettings.autoLockMinutes}
-            onChange={(event) => onSettingsChange({ autoLockMinutes: event.target.value as AppSettings["autoLockMinutes"] })}
-            className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-medium text-[#5a392a] outline-none"
-          >
-            <option value="off">사용 안 함</option>
-            <option value="1">1분</option>
-            <option value="5">5분</option>
-            <option value="15">15분</option>
-            <option value="30">30분</option>
-          </select>
+          <div className="text-right">
+            <select
+              value={appSettings.autoLockMinutes}
+              onChange={(event) => onSettingsChange({ autoLockMinutes: event.target.value as AppSettings["autoLockMinutes"] })}
+              className="rounded-full border border-[#ead8c9] bg-[#fffaf3] px-3 py-1.5 text-xs font-medium text-[#5a392a] outline-none"
+            >
+              <option value="off">사용 안 함</option>
+              <option value="1">1분</option>
+              <option value="5">5분</option>
+              <option value="15">15분</option>
+              <option value="30">30분</option>
+            </select>
+            <p className="mt-1 text-[11px] leading-[1.4] text-[#8f7564]">짧은 앱 전환은 10분까지 유지돼요.</p>
+          </div>
         </SettingControl>
       </Section>
 

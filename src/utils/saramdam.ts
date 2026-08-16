@@ -23,6 +23,16 @@ export function getRelationLine(person: Person): string {
   return [person.category, group].filter(Boolean).join(" · ");
 }
 
+export function formatRemindInterval(days?: number): string {
+  const interval = days || 60;
+  return `연락 주기 ${interval}일`;
+}
+
+export function formatRemindHelp(days?: number): string {
+  const interval = days || 60;
+  return `마지막 연락 후 ${interval}일이 지나면 알려드려요`;
+}
+
 export function getRecentMemory(person: Person): string {
   return person.history?.[0]?.summary || person.preferences.notes || "아직 담긴 이야기가 없어요.";
 }
@@ -92,5 +102,9 @@ export function getLastStoryDate(person: Person): string {
 }
 
 export function normalizeMemoryText(value: string) {
-  return value.replace(/\s+/g, "").replace(/[.,!?'"“”]/g, "").toLowerCase();
+  return value
+    .replace(/\s+/g, "")
+    .replace(/[.,!?'"“”]/g, "")
+    .replace(/요즘|최근|현재|이제|하기시작함|시작했음|시작함|배우기시작함|배우는중|배움|하는중|하고있음|중임/g, "")
+    .toLowerCase();
 }

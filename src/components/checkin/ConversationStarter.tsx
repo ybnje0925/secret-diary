@@ -43,6 +43,7 @@ export default function ConversationStarter({
   const [showComplete, setShowComplete] = useState(false);
   const [medium, setMedium] = useState<ContactMedium>("카톡");
   const showError = Boolean(error && !starters && !isLoading);
+  const showFallbackNotice = Boolean(error && starters && !isLoading);
 
   const copyText = (text: string) => {
     navigator.clipboard?.writeText(text).catch(() => undefined);
@@ -86,6 +87,13 @@ export default function ConversationStarter({
         <div className="rounded-2xl border border-[#ead8c9] bg-[#fff1e8] p-4">
           <p className="font-medium text-[#c95735]">문구를 불러오는 데 잠시 문제가 생겼어요.</p>
           <button onClick={() => onRegenerate("casual")} className="mt-3 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#c95735]">다시 시도</button>
+        </div>
+      )}
+
+      {showFallbackNotice && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#ead8c9] bg-[#fff6ee] px-3 py-2.5">
+          <p className="text-xs font-medium leading-[1.5] text-[#8d5b45]">{error}</p>
+          <button onClick={() => onRegenerate("casual")} className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#c95735]">다시 시도</button>
         </div>
       )}
 

@@ -1,9 +1,10 @@
-import { AlertCircle, ArrowLeft, Bell, Search, Sparkles } from "lucide-react";
+import { ArrowLeft, Bell, Search, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "../components/common/Avatar";
 import ConversationStarter, { StarterSet } from "../components/checkin/ConversationStarter";
 import ConversationTopicCard, { ConversationTopic } from "../components/checkin/ConversationTopicCard";
 import { InteractionHistory, Person } from "../types";
+import { buildCheckInTopics, buildLocalStarters as buildCandidateStarters } from "../utils/checkInRecommendations";
 import { daysSince, formatDateKo, getRecentMemory, getRelationLine, normalizeMemoryText } from "../utils/saramdam";
 
 interface Props {
@@ -117,13 +118,13 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ person: buildPersonPayload(person) })
       });
-      const data = await response.json();
+      const data = await safeJson(response);
       if (!response.ok || !data.success) throw new Error(data.error || "안부 주제를 불러오지 못했어요.");
       const aiTopics = normalizeTopics(data.data?.topics || [], person);
       setTopics(aiTopics.length ? aiTopics : makeLocalTopics(person));
     } catch (error: any) {
-      setTopicError(error.message || "이야기를 불러오는 데 잠시 문제가 생겼어요.");
       setTopics(makeLocalTopics(person));
+      setTopicError("AI 추천 대신 저장된 기록으로 이야기를 준비했어요.");
     } finally {
       setIsLoadingTopics(false);
     }
@@ -143,12 +144,12 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ person: buildPersonPayload(person), topic, tone })
       });
-      const data = await response.json();
+      const data = await safeJson(response);
       if (!response.ok || !data.success) throw new Error(data.error || "문구를 불러오지 못했어요.");
       setStarters(normalizeStarters(data.data, person, topic, tone));
     } catch (error: any) {
-      setStarterError(error.message || "문구를 불러오는 데 잠시 문제가 생겼어요.");
       setStarters(makeLocalStarters(person, topic, tone));
+      setStarterError("AI 추천 대신 저장된 기록으로 문구를 준비했어요.");
     } finally {
       setIsLoadingStarters(false);
     }
@@ -191,7 +192,7 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
           <p className="mt-1.5 whitespace-pre-line text-[13px] leading-[1.6] text-[#7c6252]">함께 나눴던 이야기에서{"\n"}자연스럽게 꺼낼 만한 주제를 찾아봤어요.</p>
         </section>
         {isLoadingTopics && <LoadingCard text={`${selected.name}와 나눴던 이야기를 살펴보고 있어요 🌿`} />}
-        {topicError && <ErrorCard message="이야기를 불러오는 데 잠시 문제가 생겼어요." onRetry={() => loadTopics(selected)} />}
+        {topicError && <FallbackNotice message={topicError} onRetry={() => loadTopics(selected)} />}
         {!isLoadingTopics && topics.length === 0 && (
           <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center shadow-soft">
             <Sparkles className="mx-auto h-8 w-8 text-[#d85b36]" />
@@ -319,11 +320,11 @@ function LoadingCard({ text }: { text: string }) {
   );
 }
 
-function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+function FallbackNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="rounded-2xl border border-[#ead8c9] bg-[#fff1e8] p-4">
-      <p className="flex gap-2 font-medium text-[#c95735]"><AlertCircle className="h-5 w-5 shrink-0" />{message}</p>
-      <button onClick={onRetry} className="mt-3 rounded-full bg-white px-4 py-2 text-sm font-semibold text-[#c95735]">다시 시도</button>
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#ead8c9] bg-[#fff6ee] px-3 py-2.5">
+      <p className="text-xs font-medium leading-[1.5] text-[#8d5b45]">{message}</p>
+      <button onClick={onRetry} className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#c95735]">다시 시도</button>
     </div>
   );
 }
@@ -376,62 +377,7 @@ function normalizeTopics(rawTopics: any[], person: Person): ConversationTopic[] 
 }
 
 function makeLocalTopics(person: Person): ConversationTopic[] {
-  const topics: ConversationTopic[] = [];
-  const recent = person.history.slice(0, 4);
-
-  recent.forEach((history, index) => {
-    const text = history.summary.split("\n")[0] || history.summary;
-    if (!text.trim()) return;
-    const sensitive = detectSensitivity(text);
-    topics.push({
-      id: `history-${index}`,
-      icon: pickIcon(text),
-      topic: sensitive === "sensitive" ? "지난번 이야기" : makeTopicTitle(text),
-      reason: sensitive === "sensitive" ? "지난번 조금 조심스럽게 꺼내면 좋을 이야기를 나눴어요." : text,
-      source: `${formatDateKo(history.date)} · ${history.medium}`,
-      sensitivity: sensitive,
-      suggestedQuestion: sensitive === "sensitive" ? "요즘은 조금 괜찮아졌는지 부담스럽지 않게 물어보는 건 어떨까요?" : "그때 이야기했던 일은 요즘 어떤지 자연스럽게 물어보세요."
-    });
-  });
-
-  person.familyInfo.children.forEach((child, index) => {
-    if (!child.memo) return;
-    topics.push({
-      id: `family-${index}`,
-      icon: "👧",
-      topic: `${child.name} 이야기`,
-      reason: `${child.name}에 대해 기록해둔 이야기가 있어요: ${child.memo}`,
-      source: "가족 정보에서",
-      sensitivity: detectSensitivity(child.memo),
-      suggestedQuestion: detectSensitivity(child.memo) === "sensitive" ? "가족들은 요즘 잘 지내는지 조심스럽게 물어보세요." : `${child.name}는 요즘 어떻게 지내는지 물어보세요.`
-    });
-  });
-
-  if (person.preferences.hobbies) {
-    topics.push({
-      id: "hobby",
-      icon: pickIcon(person.preferences.hobbies),
-      topic: makeTopicTitle(person.preferences.hobbies),
-      reason: `${person.name}님은 ${person.preferences.hobbies}에 관심이 있어요.`,
-      source: "취향 정보에서",
-      sensitivity: "normal",
-      suggestedQuestion: "요즘도 즐기고 있는지 자연스럽게 물어보세요."
-    });
-  }
-
-  if (person.preferences.food) {
-    topics.push({
-      id: "food",
-      icon: "☕",
-      topic: "좋아하는 것 이야기",
-      reason: `${person.preferences.food}라고 기록되어 있어요.`,
-      source: "취향 정보에서",
-      sensitivity: "normal",
-      suggestedQuestion: "최근에도 좋아하는 맛집이나 메뉴가 있는지 물어보세요."
-    });
-  }
-
-  return dedupeTopics(topics).slice(0, 4);
+  return buildCheckInTopics(person) as ConversationTopic[];
 }
 
 function normalizeStarters(raw: any, person: Person, topic: ConversationTopic, tone: "casual" | "polite" | "short"): StarterSet {
@@ -443,34 +389,7 @@ function normalizeStarters(raw: any, person: Person, topic: ConversationTopic, t
 }
 
 function makeLocalStarters(person: Person, topic: ConversationTopic, tone: "casual" | "polite" | "short"): StarterSet {
-  const base = topic.sensitivity === "sensitive"
-    ? "지난번에 이야기했던 게 생각나서 연락했어. 요즘은 조금 괜찮아?"
-    : `지난번에 ${topic.topic} 얘기했던 게 생각났어. 요즘은 어때?`;
-  const polite = topic.sensitivity === "sensitive"
-    ? "오랜만이에요. 지난번에 이야기하셨던 일이 문득 생각났어요. 요즘은 조금 괜찮으신가요?"
-    : `오랜만이에요. 지난번에 ${topic.topic} 이야기가 생각났어요. 요즘은 어떠세요?`;
-
-  if (tone === "short") {
-    return {
-      natural: `오랜만이야! ${topic.topic} 생각나서 연락했어. 잘 지내?`,
-      friendly: `${person.name}아 잘 지내? 문득 생각나서 연락했어.`,
-      polite: `오랜만이에요. 잘 지내고 계신가요?`
-    };
-  }
-
-  if (tone === "polite" || person.category.includes("회사")) {
-    return {
-      natural: polite,
-      friendly: `오랜만이에요 ${person.name}님. ${topic.topic} 이야기가 생각났는데, 요즘은 어떻게 지내세요?`,
-      polite
-    };
-  }
-
-  return {
-    natural: `오랜만이야! 잘 지내지? ${base}`,
-    friendly: `${person.name}아 갑자기 네 생각나서 ㅋㅋ ${base}`,
-    polite
-  };
+  return buildCandidateStarters(person, topic, tone);
 }
 
 function detectSensitivity(text: string): "normal" | "sensitive" {
@@ -483,7 +402,7 @@ function pickIcon(text: string) {
   if (/가족|딸|아들|아내|남편|아이/.test(text)) return "👧";
   if (/회사|업무|직장|이직/.test(text)) return "💼";
   if (/아프|건강|수술|병원|걱정/.test(text)) return "❤️";
-  return "🌿";
+  return "🤚";
 }
 
 function makeTopicTitle(text: string) {
@@ -523,4 +442,12 @@ function dedupeTopics(topics: ConversationTopic[]) {
     seen.add(key);
     return true;
   });
+}
+
+async function safeJson(response: Response): Promise<any> {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 }

@@ -5,23 +5,28 @@ import EventHistorySection from "../components/person/EventHistorySection";
 import MemorySummaryCard from "../components/person/MemorySummaryCard";
 import PersonInfoSection from "../components/person/PersonInfoSection";
 import PersonTimeline from "../components/person/PersonTimeline";
+import QuickRecordPanel from "../components/person/QuickRecordPanel";
+import type { StorySavePayload } from "../components/person/StoryCaptureSheet";
 import { EventHistoryItem, InteractionHistory, Person } from "../types";
 import { daysSince, getRelationLine } from "../utils/saramdam";
+import type { EditSection } from "./AddPersonView";
 
 interface Props {
   person: Person;
   onBack: () => void;
-  onEdit: () => void;
+  onEdit: (section?: EditSection) => void;
   onDeletePerson: () => void;
   onStartStory: () => void;
   onStartCheckIn: () => void;
+  aiEnabled?: boolean;
+  onSaveStory: (payload: StorySavePayload) => void;
   onUpdateHistory: (history: InteractionHistory) => void;
   onDeleteHistory: (historyId: string) => void;
   onSaveEvent: (event: EventHistoryItem) => void;
   onDeleteEvent: (eventId: string) => void;
 }
 
-const tabs = ["최근 이야기", "전체 기록", "정보", "함께한 마음"] as const;
+const tabs = ["최근 이야기", "전체 기록", "빠른 기록", "정보", "함께한 마음"] as const;
 type DetailTab = typeof tabs[number];
 
 export default function PersonDetailView({
@@ -31,6 +36,8 @@ export default function PersonDetailView({
   onDeletePerson,
   onStartStory,
   onStartCheckIn,
+  aiEnabled,
+  onSaveStory,
   onUpdateHistory,
   onDeleteHistory,
   onSaveEvent,
@@ -82,12 +89,9 @@ export default function PersonDetailView({
         <span className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4" /> 마지막 연락 {daysSince(person.lastContactDate)}일 전 · {person.lastContactMedium}
         </span>
-        <button onClick={onEdit} className="flex h-8 w-8 items-center justify-center rounded-full border border-[#ead8c9] bg-white text-[#9a6044]">
-          <Edit3 className="h-4 w-4" />
-        </button>
       </div>
 
-      <MemorySummaryCard person={person} onEdit={onEdit} />
+      <MemorySummaryCard person={person} onEdit={() => onEdit("preferences")} />
 
       {person.history.length === 0 && !person.preferences.notes && (
         <section className="rounded-[18px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center shadow-soft">
@@ -97,7 +101,7 @@ export default function PersonDetailView({
           </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <button onClick={onStartStory} className="rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white">첫 이야기 담기</button>
-            <button onClick={onEdit} className="rounded-full border border-[#dfa98f] bg-white py-3 text-sm font-medium text-[#c95735]">정보 조금 더 추가하기</button>
+            <button onClick={() => onEdit()} className="rounded-full border border-[#dfa98f] bg-white py-3 text-sm font-medium text-[#c95735]">정보 조금 더 추가하기</button>
           </div>
         </section>
       )}
@@ -122,6 +126,7 @@ export default function PersonDetailView({
       {(activeTab === "최근 이야기" || activeTab === "전체 기록") && (
         <PersonTimeline person={person} onUpdateHistory={onUpdateHistory} onDeleteHistory={onDeleteHistory} />
       )}
+      {activeTab === "빠른 기록" && <QuickRecordPanel person={person} aiEnabled={aiEnabled} onSave={onSaveStory} />}
       {activeTab === "정보" && <PersonInfoSection person={person} onEdit={onEdit} />}
       {activeTab === "함께한 마음" && <EventHistorySection person={person} onSaveEvent={onSaveEvent} onDeleteEvent={onDeleteEvent} />}
     </div>

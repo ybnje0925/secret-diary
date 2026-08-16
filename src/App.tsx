@@ -9,10 +9,10 @@ import { CustomGroup, EventHistoryItem, InteractionHistory, Person } from "./typ
 import { AppSettings, loadAppSettings, saveAppSettings } from "./utils/appSettings";
 import { normalizeMemoryText } from "./utils/saramdam";
 import { clearIncompleteVaultSetup, getVaultStorageState, saveVault, VaultData } from "./vault";
-import AddPersonView from "./views/AddPersonView";
+import AddPersonView, { EditSection } from "./views/AddPersonView";
 import CheckInView from "./views/CheckInView";
 import HomeView from "./views/HomeView";
-import PeopleView from "./views/PeopleView";
+import PeopleView, { PeopleSortMode } from "./views/PeopleView";
 import PersonDetailView from "./views/PersonDetailView";
 import SettingsView from "./views/SettingsView";
 import OnboardingView from "./views/OnboardingView";
@@ -20,6 +20,7 @@ import OnboardingView from "./views/OnboardingView";
 type AppLayer = "root" | "detail" | "add";
 type ConfirmRequest = ConfirmDialogOptions & { onConfirm: () => void };
 type EntryStage = "unlock" | "onboarding" | "pin-setup";
+const MIN_AUTO_LOCK_GRACE_MS = 10 * 60 * 1000;
 
 export default function App() {
   const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
@@ -30,8 +31,10 @@ export default function App() {
   const [checkInPersonId, setCheckInPersonId] = useState<string | null>(null);
   const [peopleQuery, setPeopleQuery] = useState("");
   const [peopleFilter, setPeopleFilter] = useState("전체");
+  const [peopleSortMode, setPeopleSortMode] = useState<PeopleSortMode>("story");
   const [storyInitialPersonId, setStoryInitialPersonId] = useState<string | null | undefined>(undefined);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [editingSection, setEditingSection] = useState<EditSection | undefined>(undefined);
   const [addInitialName, setAddInitialName] = useState("");
   const [groupManagerOpen, setGroupManagerOpen] = useState(false);
   const [toast, setToast] = useState("");
@@ -56,6 +59,7 @@ export default function App() {
   const confirmOpenRef = useRef(false);
   const backPressedAtRef = useRef(0);
   const autoLockTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const lastActiveAtRef = useRef(Date.now());
   const tabScrollPositionsRef = useRef<Record<AppTab, number>>({ home: 0, people: 0, checkin: 0, settings: 0 });
 
   useEffect(() => { layerRef.current = layer; }, [layer]);
@@ -201,6 +205,7 @@ export default function App() {
       setAppSettings(nextSettings);
       saveAppSettings(nextSettings);
       setEditingPerson(null);
+      setEditingSection(undefined);
       setAddInitialName("");
       setActiveTab("people");
       setLayer("add");
@@ -246,22 +251,56 @@ export default function App() {
       return;
     }
 
-    const resetAutoLockTimer = () => {
+    const configuredMs = Number(appSettings.autoLockMinutes) * 60 * 1000;
+    const effectiveLockMs = Math.max(configuredMs, MIN_AUTO_LOCK_GRACE_MS);
+
+    const lockForInactivity = () => {
       if (autoLockTimerRef.current) window.clearTimeout(autoLockTimerRef.current);
-      autoLockTimerRef.current = window.setTimeout(() => {
-        handleLock();
-        setToast("자동 잠금으로 사람談을 잠갔어요.");
-        window.setTimeout(() => setToast(""), 2000);
-      }, Number(appSettings.autoLockMinutes) * 60 * 1000);
+      handleLock();
+      setToast("자동 잠금으로 사람談을 잠갔어요.");
+      window.setTimeout(() => setToast(""), 2000);
     };
 
-    resetAutoLockTimer();
+    const scheduleAutoLock = () => {
+      if (autoLockTimerRef.current) window.clearTimeout(autoLockTimerRef.current);
+      if (document.visibilityState !== "visible") return;
+      const remainingMs = effectiveLockMs - (Date.now() - lastActiveAtRef.current);
+      autoLockTimerRef.current = window.setTimeout(() => {
+        if (Date.now() - lastActiveAtRef.current >= effectiveLockMs) {
+          lockForInactivity();
+          return;
+        }
+        scheduleAutoLock();
+      }, Math.max(remainingMs, 1000));
+    };
+
+    const markActive = () => {
+      lastActiveAtRef.current = Date.now();
+      scheduleAutoLock();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        if (autoLockTimerRef.current) window.clearTimeout(autoLockTimerRef.current);
+        return;
+      }
+      if (Date.now() - lastActiveAtRef.current >= effectiveLockMs) {
+        lockForInactivity();
+        return;
+      }
+      scheduleAutoLock();
+    };
+
+    lastActiveAtRef.current = Date.now();
+    scheduleAutoLock();
     const events: Array<keyof WindowEventMap> = ["pointerdown", "keydown", "touchstart"];
-    events.forEach((eventName) => window.addEventListener(eventName, resetAutoLockTimer, { passive: true }));
+    events.forEach((eventName) => window.addEventListener(eventName, markActive, { passive: true }));
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       if (autoLockTimerRef.current) window.clearTimeout(autoLockTimerRef.current);
-      events.forEach((eventName) => window.removeEventListener(eventName, resetAutoLockTimer));
+      events.forEach((eventName) => window.removeEventListener(eventName, markActive));
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [vaultKey, appSettings.autoLockMinutes]);
 
@@ -280,6 +319,7 @@ export default function App() {
     setSelectedPersonId(personToSave.id);
     setActiveTab("people");
     setEditingPerson(null);
+    setEditingSection(undefined);
     setAddInitialName("");
     setLayer("detail");
     historyLayerRef.current = "detail";
@@ -384,20 +424,23 @@ export default function App() {
     });
   };
 
-  const openEditPerson = (person: Person) => {
+  const openEditPerson = (person: Person, section?: EditSection) => {
     setEditingPerson(person);
+    setEditingSection(section);
     setAddInitialName("");
     pushLayer("add");
   };
 
   const openAddPerson = (initialName = "") => {
     setEditingPerson(null);
+    setEditingSection(undefined);
     setAddInitialName(initialName);
     pushLayer("add");
   };
 
   const openExistingFromAdd = (personId: string) => {
     setEditingPerson(null);
+    setEditingSection(undefined);
     setAddInitialName("");
     setSelectedPersonId(personId);
     setLayer("detail");
@@ -483,6 +526,15 @@ export default function App() {
     setLayer("root");
   };
 
+  const viewLongTimePeople = () => {
+    rememberTabScroll();
+    setPeopleQuery("");
+    setPeopleFilter("전체");
+    setPeopleSortMode("longTime");
+    setActiveTab("people");
+    setLayer("root");
+  };
+
   if (!vaultKey) {
     if (entryStage === "onboarding") {
       return (
@@ -534,6 +586,8 @@ export default function App() {
                 onDeletePerson={() => handleDeletePerson(selectedPerson.id)}
                 onStartStory={() => setStoryInitialPersonId(selectedPerson.id)}
                 onStartCheckIn={() => startCheckIn(selectedPerson.id)}
+                aiEnabled={appSettings.aiEnabled}
+                onSaveStory={(payload) => handleSaveStory(selectedPerson.id, payload)}
                 onUpdateHistory={(history) => handleUpdateHistory(selectedPerson.id, history)}
                 onDeleteHistory={(historyId) => handleDeleteHistory(selectedPerson.id, historyId)}
                 onSaveEvent={(event) => handleSaveEvent(selectedPerson.id, event)}
@@ -546,13 +600,14 @@ export default function App() {
                 people={people}
                 customGroups={customGroups}
                 initialName={addInitialName}
-                onBack={() => { setEditingPerson(null); setAddInitialName(""); closeLayer(); }}
+                editSection={editingSection}
+                onBack={() => { setEditingPerson(null); setEditingSection(undefined); setAddInitialName(""); closeLayer(); }}
                 onSave={handleSavePerson}
                 onOpenExisting={openExistingFromAdd}
               />
             )}
             {layer === "root" && activeTab === "home" && (
-              <HomeView people={people} onOpenPerson={openPerson} onAddPerson={openAddPerson} onStartCheckIn={startCheckIn} />
+              <HomeView people={people} onOpenPerson={openPerson} onStartCheckIn={startCheckIn} onViewLongTimePeople={viewLongTimePeople} />
             )}
             {layer === "root" && activeTab === "people" && (
               <PeopleView
@@ -565,6 +620,8 @@ export default function App() {
                 onOpenPerson={openPerson}
                 onAddPerson={openAddPerson}
                 onManageGroups={() => setGroupManagerOpen(true)}
+                sortMode={peopleSortMode}
+                onSortModeChange={setPeopleSortMode}
               />
             )}
             {layer === "root" && activeTab === "checkin" && (
@@ -680,10 +737,16 @@ function applyApprovedStory(person: Person, payload: StorySavePayload): Person {
 
 function appendUniqueLines(existing: string, nextLines: string[]) {
   const existingLines = existing.split("\n").map((line) => line.trim()).filter(Boolean);
-  const existingNormalized = new Set(existingLines.map(normalizeMemoryText));
+  const existingNormalized = existingLines.map(normalizeMemoryText);
   const additions = nextLines
     .map((line) => line.trim())
-    .filter((line) => line && !existingNormalized.has(normalizeMemoryText(line)));
+    .filter((line) => {
+      if (!line) return false;
+      const normalized = normalizeMemoryText(line);
+      const isDuplicate = existingNormalized.some((current) => current === normalized || current.includes(normalized) || normalized.includes(current));
+      if (!isDuplicate) existingNormalized.push(normalized);
+      return !isDuplicate;
+    });
 
   return [...existingLines, ...additions].join("\n");
 }

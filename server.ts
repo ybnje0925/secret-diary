@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { buildCheckInCandidates, buildCheckInTopics, buildLocalStarters } from "./src/utils/checkInRecommendations";
 
 dotenv.config();
 
@@ -158,18 +159,25 @@ app.post("/api/check-in-suggestions", async (req, res) => {
       return res.status(400).json({ success: false, error: "선택한 사람 정보가 필요합니다." });
     }
 
+    const candidates = buildCheckInCandidates(person).slice(0, 8);
+    const localTopics = buildCheckInTopics(person);
+    if (candidates.length === 0 || localTopics.length === 0) {
+      return res.json({ success: true, data: { topics: [] } });
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
     if (shouldUseLocalCheckInFallback(apiKey)) {
-      return res.json({ success: true, data: { topics: simulateCheckInTopics(person) }, simulated: true });
+      return res.json({ success: true, data: { topics: localTopics }, candidates, simulated: true });
     }
 
     const ai = getGeminiClient();
     const prompt = `
 You are helping with Saramdam, a relationship memory app.
-Recommend 2-4 check-in conversation topics using ONLY the provided person data.
+The app already selected evidence-backed memory candidates.
+Your job is only to turn selected candidates into natural Korean check-in topics and short questions.
 
 Rules:
-- Do not invent facts outside the provided data.
+- Use ONLY the provided candidates.
 - Do not invent names, family relations, ages, jobs, health status, or current situations.
 - If current status is unknown, clearly frame it as a past record.
 - Separate facts from suggested questions.
@@ -177,9 +185,27 @@ Rules:
 - If evidence is weak, return fewer topics.
 - Handle sensitive topics gently. Sensitive categories include health, family problems, job changes, money, death, conflict, illness.
 - For sensitive topics, do not ask for a specific outcome. Suggest a soft check-in.
+- Return at least 1 and at most 4 topics only when the evidence is enough.
+- Keep the candidateId from the selected candidate. Do not use candidates not listed.
+- Korean messages should sound like a real short KakaoTalk check-in, not a counselor or a formal business letter.
 
-Person data JSON:
-${JSON.stringify(person)}
+Person context:
+${JSON.stringify({ name: person.name, category: person.category, groups: person.groups, company: person.company, lastContactDate: person.lastContactDate })}
+
+Evidence-backed candidates JSON:
+${JSON.stringify(candidates.map(({ id, text, sourceType, sourceDate, source, category, sensitivity, recencyScore, followUpScore, repetitionScore, finalScore }) => ({
+      id,
+      text,
+      sourceType,
+      sourceDate,
+      source,
+      category,
+      sensitivity,
+      recencyScore,
+      followUpScore,
+      repetitionScore,
+      finalScore
+    })))}
     `;
 
     const responseSchema = {
@@ -191,6 +217,7 @@ ${JSON.stringify(person)}
             type: Type.OBJECT,
             properties: {
               id: { type: Type.STRING },
+              candidateId: { type: Type.STRING },
               icon: { type: Type.STRING },
               topic: { type: Type.STRING },
               reason: { type: Type.STRING },
@@ -198,7 +225,7 @@ ${JSON.stringify(person)}
               sensitivity: { type: Type.STRING, enum: ["normal", "sensitive"] },
               suggestedQuestion: { type: Type.STRING }
             },
-            required: ["topic", "reason", "source", "sensitivity", "suggestedQuestion"]
+            required: ["candidateId", "topic", "reason", "source", "sensitivity", "suggestedQuestion"]
           }
         }
       },
@@ -212,14 +239,15 @@ ${JSON.stringify(person)}
     });
 
     const parsed = JSON.parse(aiResponse.text || "{\"topics\":[]}");
-    res.json({ success: true, data: parsed });
+    const topics = refineAiTopics(parsed.topics || [], localTopics);
+    res.json({ success: true, data: { topics: topics.length ? topics : localTopics }, candidates });
   } catch (error: any) {
     console.error("Check-in suggestions failed:", error);
     const fallbackPerson = req.body?.person;
     if (fallbackPerson?.name) {
       return res.json({
         success: true,
-        data: { topics: simulateCheckInTopics(fallbackPerson) },
+        data: { topics: buildCheckInTopics(fallbackPerson) },
         fallback: true,
         error: error.message || "AI 안부 추천에 실패해 저장된 기록 기반 추천을 사용했습니다."
       });
@@ -237,7 +265,7 @@ app.post("/api/check-in-starters", async (req, res) => {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (shouldUseLocalCheckInFallback(apiKey)) {
-      return res.json({ success: true, data: simulateCheckInStarters(person, topic, tone), simulated: true });
+      return res.json({ success: true, data: buildLocalStarters(person, topic, tone), simulated: true });
     }
 
     const ai = getGeminiClient();
@@ -245,8 +273,8 @@ app.post("/api/check-in-starters", async (req, res) => {
 Create 3 Korean conversation starter messages for Saramdam.
 Use ONLY the selected topic and source. Do not add new facts.
 
-Person:
-${JSON.stringify(person)}
+Person context:
+${JSON.stringify({ name: person.name, category: person.category, groups: person.groups, company: person.company })}
 
 Selected topic:
 ${JSON.stringify(topic)}
@@ -286,7 +314,7 @@ Rules:
     if (person?.name && topic?.topic) {
       return res.json({
         success: true,
-        data: simulateCheckInStarters(person, topic, tone),
+        data: buildLocalStarters(person, topic, tone),
         fallback: true,
         error: error.message || "AI 문구 생성에 실패해 저장된 기록 기반 문구를 사용했습니다."
       });
@@ -294,6 +322,35 @@ Rules:
     res.status(500).json({ success: false, error: error.message || "대화 시작 문구를 불러오지 못했습니다." });
   }
 });
+
+function refineAiTopics(rawTopics: any[], localTopics: any[]) {
+  const byCandidateId = new Map(localTopics.map((topic) => [topic.candidateId, topic]));
+  const seen = new Set<string>();
+
+  return rawTopics
+    .map((topic) => {
+      const base = byCandidateId.get(String(topic?.candidateId || ""));
+      if (!base) return null;
+      return {
+        ...base,
+        id: String(topic.id || base.id),
+        icon: String(topic.icon || base.icon),
+        topic: String(topic.topic || base.topic).slice(0, 40),
+        reason: String(topic.reason || base.reason).slice(0, 120),
+        source: base.source,
+        sensitivity: base.sensitivity,
+        suggestedQuestion: String(topic.suggestedQuestion || base.suggestedQuestion).slice(0, 140)
+      };
+    })
+    .filter(Boolean)
+    .filter((topic) => {
+      const key = String(topic.candidateId || topic.id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 4);
+}
 
 function simulateCheckInTopics(person: any) {
   const topics: any[] = [];

@@ -1,19 +1,22 @@
 import { ArrowLeft, Camera, ChevronDown, Leaf, Upload, UserRound } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, ReactNode, Ref } from "react";
 import Avatar from "../components/common/Avatar";
 import { CategoryType, ChildInfo, ContactMedium, CustomGroup, Person } from "../types";
-import { getRelationLine, primaryCategoryLabels } from "../utils/saramdam";
+import { formatRemindHelp, getRelationLine, primaryCategoryLabels } from "../utils/saramdam";
 
 interface Props {
   person?: Person | null;
   people: Person[];
   customGroups: CustomGroup[];
   initialName?: string;
+  editSection?: EditSection;
   onBack: () => void;
   onSave: (person: Person) => void;
   onOpenExisting: (personId: string) => void;
 }
+
+export type EditSection = "relation" | "company" | "family" | "preferences";
 
 const profilePresets = [
   { id: "man" as const, label: "남자", emoji: "👨", bg: "bg-[#f3dfd1]" },
@@ -25,7 +28,7 @@ const profilePresets = [
 
 const mediumOptions: ContactMedium[] = ["통화", "카톡", "식사", "대면", "메시지", "기타"];
 
-export default function AddPersonView({ person, people, customGroups, initialName, onBack, onSave, onOpenExisting }: Props) {
+export default function AddPersonView({ person, people, customGroups, initialName, editSection, onBack, onSave, onOpenExisting }: Props) {
   const isEdit = Boolean(person);
   const [name, setName] = useState(person?.name || initialName || "");
   const [category, setCategory] = useState<CategoryType>(person?.category || "친구");
@@ -37,17 +40,24 @@ export default function AddPersonView({ person, people, customGroups, initialNam
   const [food, setFood] = useState(person?.preferences.food || "");
   const [hobbies, setHobbies] = useState(person?.preferences.hobbies || "");
   const [spouseName, setSpouseName] = useState(person?.familyInfo.spouseName || "");
-  const [childrenText, setChildrenText] = useState((person?.familyInfo.children || []).map((child) => [child.name, child.ageOrBirth, child.memo].filter(Boolean).join(" · ")).join("\n"));
+  const [children, setChildren] = useState<ChildInfo[]>(() => normalizeChildren(person?.familyInfo.children || []));
   const [lastContactDate, setLastContactDate] = useState(person?.lastContactDate || new Date().toISOString().split("T")[0]);
   const [lastContactMedium, setLastContactMedium] = useState<ContactMedium>(person?.lastContactMedium || "기타");
   const [remindIntervalDays, setRemindIntervalDays] = useState(String(person?.remindIntervalDays || 60));
-  const [showDetails, setShowDetails] = useState(isEdit);
+  const [showDetails, setShowDetails] = useState(isEdit || Boolean(editSection));
   const [forceAdd, setForceAdd] = useState(false);
   const [avatarImageDataUrl, setAvatarImageDataUrl] = useState(person?.avatarImageDataUrl || "");
   const [avatarPreset, setAvatarPreset] = useState<Person["avatarPreset"]>(person?.avatarPreset || "neutral");
   const [avatarEmoji, setAvatarEmoji] = useState(person?.avatarEmoji || "🙂");
   const [avatarBg, setAvatarBg] = useState(person?.avatarBg || "bg-[#f3dfd1]");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const relationRef = useRef<HTMLDivElement>(null);
+  const companyRef = useRef<HTMLDivElement>(null);
+  const familyRef = useRef<HTMLDivElement>(null);
+  const preferencesRef = useRef<HTMLDivElement>(null);
+  const companyInputRef = useRef<HTMLInputElement>(null);
+  const spouseInputRef = useRef<HTMLInputElement>(null);
+  const foodInputRef = useRef<HTMLInputElement>(null);
 
   const similarPeople = useMemo(() => {
     const normalized = normalizeName(name);
@@ -62,7 +72,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
     company,
     category,
     groups,
-    familyInfo: { spouseName: spouseName || undefined, children: parseChildren(childrenText) },
+    familyInfo: { spouseName: spouseName || undefined, children: cleanChildren(children) },
     preferences: { food, hobbies, notes: memo },
     eventsHistory: person?.eventsHistory || [],
     avatarEmoji,
@@ -74,6 +84,25 @@ export default function AddPersonView({ person, people, customGroups, initialNam
     remindIntervalDays: Number(remindIntervalDays) || 60,
     history: person?.history || []
   };
+
+  useEffect(() => {
+    if (!editSection) return;
+    setShowDetails(true);
+    window.requestAnimationFrame(() => {
+      const target = {
+        relation: relationRef.current,
+        company: companyRef.current,
+        family: familyRef.current,
+        preferences: preferencesRef.current
+      }[editSection];
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => {
+        if (editSection === "company") companyInputRef.current?.focus();
+        if (editSection === "family") spouseInputRef.current?.focus();
+        if (editSection === "preferences") foodInputRef.current?.focus();
+      }, 240);
+    });
+  }, [editSection]);
 
   const addGroup = (value: string) => {
     const next = value.trim();
@@ -104,7 +133,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
       groups,
       familyInfo: {
         spouseName: spouseName.trim() || undefined,
-        children: parseChildren(childrenText)
+        children: cleanChildren(children)
       },
       preferences: {
         food: food.trim(),
@@ -144,7 +173,7 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         </div>
       </section>
 
-      <section className="rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
+      <section ref={relationRef} className="scroll-mt-6 rounded-2xl border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-soft">
         <div className="flex flex-col items-center">
           <Avatar person={previewPerson} size="lg" />
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => handleImageFile(event.target.files?.[0])} />
@@ -231,9 +260,9 @@ export default function AddPersonView({ person, people, customGroups, initialNam
             </div>
           )}
         </Field>
-        <Field label="기억하고 싶은 한마디 (선택)">
-          <textarea value={memo} onChange={(event) => setMemo(event.target.value)} maxLength={300} placeholder="대학교 때부터 친한 친구" className="saram-input min-h-28 resize-none" />
-          <p className="mt-1 text-right text-xs text-[#8f7564]">{memo.length}/300</p>
+        <Field label="기억하고 싶은 한마디" description="이 사람을 떠올릴 수 있는 한 문장이면 충분해요.">
+          <textarea value={memo} onChange={(event) => setMemo(event.target.value)} maxLength={80} placeholder="대학교 때부터 친한 친구" rows={2} className="saram-input min-h-[58px] resize-none py-3" />
+          <p className="mt-1 text-right text-xs text-[#8f7564]">{memo.length}/80</p>
         </Field>
       </section>
 
@@ -247,15 +276,43 @@ export default function AddPersonView({ person, people, customGroups, initialNam
           <Field label="연락처">
             <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="010-0000-0000" className="saram-input" />
           </Field>
-          <Field label="회사 / 소속">
-            <input value={company} onChange={(event) => setCompany(event.target.value)} placeholder="회사, 동호회, 학교 등" className="saram-input" />
+          <Field targetRef={companyRef} label="회사 / 소속">
+            <input ref={companyInputRef} value={company} onChange={(event) => setCompany(event.target.value)} placeholder="회사, 동호회, 학교 등" className="saram-input" />
           </Field>
-          <Field label="가족">
-            <input value={spouseName} onChange={(event) => setSpouseName(event.target.value)} placeholder="배우자 이름 (선택)" className="saram-input mb-2" />
-            <textarea value={childrenText} onChange={(event) => setChildrenText(event.target.value)} placeholder={"자녀나 가족을 한 줄씩 적어보세요\n예) 민지 · 9살 · 테니스 배우는 중"} className="saram-input min-h-24 resize-none" />
+          <Field targetRef={familyRef} label="가족 정보">
+            <div className="space-y-3">
+              <div>
+                <span className="mb-1.5 block text-xs font-medium text-[#7c6252]">배우자</span>
+                <input ref={spouseInputRef} value={spouseName} onChange={(event) => setSpouseName(event.target.value)} placeholder="배우자 이름" className="saram-input" />
+              </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-[#7c6252]">자녀</span>
+                  <button type="button" onClick={() => setChildren([...children, { name: "", ageOrBirth: "", memo: "" }])} className="rounded-full border border-[#ead8c9] bg-white px-3 py-1.5 text-xs font-semibold text-[#c95735]">
+                    + 자녀 추가
+                  </button>
+                </div>
+                {children.length === 0 ? (
+                  <p className="rounded-2xl bg-[#fff6ee] px-3 py-3 text-xs leading-[1.5] text-[#8f7564]">자녀가 있다면 이름, 생년월일이나 학년, 기억할 메모를 남겨둘 수 있어요.</p>
+                ) : (
+                  <div className="space-y-2.5">
+                    {children.map((child, index) => (
+                      <div key={index}>
+                        <ChildEditor
+                          child={child}
+                          index={index}
+                          onChange={(nextChild) => setChildren(children.map((item, childIndex) => childIndex === index ? nextChild : item))}
+                          onDelete={() => setChildren(children.filter((_, childIndex) => childIndex !== index))}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </Field>
-          <Field label="취향">
-            <input value={food} onChange={(event) => setFood(event.target.value)} placeholder="좋아하는 음식" className="saram-input mb-2" />
+          <Field targetRef={preferencesRef} label="취향">
+            <input ref={foodInputRef} value={food} onChange={(event) => setFood(event.target.value)} placeholder="좋아하는 음식" className="saram-input mb-2" />
             <input value={hobbies} onChange={(event) => setHobbies(event.target.value)} placeholder="취미, 관심사" className="saram-input" />
           </Field>
           <Field label="연락">
@@ -265,7 +322,8 @@ export default function AddPersonView({ person, people, customGroups, initialNam
                 {mediumOptions.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </div>
-            <input value={remindIntervalDays} onChange={(event) => setRemindIntervalDays(event.target.value)} inputMode="numeric" placeholder="연락주기 일수" className="saram-input mt-2" />
+            <input value={remindIntervalDays} onChange={(event) => setRemindIntervalDays(event.target.value)} inputMode="numeric" placeholder="연락 주기 60일" className="saram-input mt-2" />
+            <p className="mt-1.5 text-xs leading-[1.5] text-[#7c6252]">{formatRemindHelp(Number(remindIntervalDays) || 60)}</p>
           </Field>
         </section>
       )}
@@ -282,12 +340,29 @@ export default function AddPersonView({ person, people, customGroups, initialNam
   );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, description, children, targetRef }: { label: string; description?: string; children: ReactNode; targetRef?: Ref<HTMLDivElement> }) {
   return (
-    <label className="mb-4 block last:mb-0">
+    <div ref={targetRef} className="mb-4 scroll-mt-6 last:mb-0">
       <span className="mb-2 block text-sm font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">{label}</span>
+      {description && <span className="-mt-1 mb-2 block text-xs leading-[1.5] text-[#7c6252]">{description}</span>}
       {children}
-    </label>
+    </div>
+  );
+}
+
+function ChildEditor({ child, index, onChange, onDelete }: { child: ChildInfo; index: number; onChange: (child: ChildInfo) => void; onDelete: () => void }) {
+  return (
+    <section className="rounded-[16px] border border-[#ead8c9] bg-white/70 p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-[#8d5b45]">자녀 {index + 1}</h3>
+        <button type="button" onClick={onDelete} className="rounded-full bg-[#fff1e8] px-2.5 py-1 text-xs font-semibold text-[#c95735]">삭제</button>
+      </div>
+      <div className="space-y-2">
+        <input value={child.name} onChange={(event) => onChange({ ...child, name: event.target.value })} placeholder="이름" className="saram-input py-3 text-sm" />
+        <input value={child.ageOrBirth || child.birthDate || ""} onChange={(event) => onChange({ ...child, ageOrBirth: event.target.value, birthDate: undefined })} placeholder="나이 / 생년월일 / 학년" className="saram-input py-3 text-sm" />
+        <input value={child.memo} onChange={(event) => onChange({ ...child, memo: event.target.value })} placeholder="짧은 메모" className="saram-input py-3 text-sm" />
+      </div>
+    </section>
   );
 }
 
@@ -295,14 +370,22 @@ function normalizeName(value: string) {
   return value.replace(/\s+/g, "").toLowerCase();
 }
 
-function parseChildren(value: string): ChildInfo[] {
-  return value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [name = "", ageOrBirth = "", ...memoParts] = line.split("·").map((part) => part.trim());
-      return { name, ageOrBirth, memo: memoParts.join(" · ") };
-    })
+function normalizeChildren(children: ChildInfo[]): ChildInfo[] {
+  return children.map((child) => ({
+    name: child.name || "",
+    birthDate: child.birthDate,
+    ageOrBirth: child.ageOrBirth || child.birthDate || "",
+    memo: child.memo || ""
+  }));
+}
+
+function cleanChildren(children: ChildInfo[]): ChildInfo[] {
+  return children
+    .map((child) => ({
+      name: child.name.trim(),
+      ageOrBirth: (child.ageOrBirth || child.birthDate || "").trim(),
+      birthDate: child.birthDate,
+      memo: child.memo.trim()
+    }))
     .filter((child) => child.name);
 }

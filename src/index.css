@@ -91,6 +91,11 @@ button {
   box-shadow: 0 0 0 3px rgba(216, 91, 54, 0.12);
 }
 
+.saram-search-input {
+  padding-left: 44px;
+  padding-right: 14px;
+}
+
 .saram-input[type="date"] {
   min-height: 48px;
   padding-left: 10px;

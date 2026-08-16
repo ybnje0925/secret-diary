@@ -30,6 +30,57 @@ interface Props {
 const mediumOptions: ContactMedium[] = ["통화", "카톡", "식사", "대면", "메시지", "기타"];
 const maxTextLength = 12000;
 
+export async function analyzeStoryTextForReview({
+  person,
+  text,
+  date,
+  medium
+}: {
+  person: Person;
+  text: string;
+  date: string;
+  medium: ContactMedium;
+}) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 18000);
+
+  let response: Response;
+  try {
+    response = await fetch("/api/summarize-text", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selectedPersonName: person.name, scriptText: text }),
+      signal: controller.signal
+    });
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      throw new Error("AI 정리가 오래 걸리고 있어요. 작성한 내용은 그대로 남아 있어요.");
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+
+  let data: any = null;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("AI 응답을 읽지 못했어요. 그대로 기록하기는 계속 사용할 수 있어요.");
+  }
+
+  if (!response.ok || !data.success) {
+    throw new Error(data?.error || "AI가 이야기를 정리하지 못했어요.");
+  }
+
+  const result = data.data || {};
+  return {
+    date: result.lastContactDate || date,
+    medium: normalizeMedium(result.lastContactMedium) || medium,
+    summary: result.summary || text,
+    items: makeReviewItems(result, person)
+  };
+}
+
 function getSpeechRecognitionCtor(): any {
   return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
 }
@@ -119,21 +170,11 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
     setIsAnalyzing(true);
     setError(null);
     try {
-      const response = await fetch("/api/summarize-text", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selectedPersonName: person.name, scriptText: text })
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "AI가 이야기를 정리하지 못했어요.");
-      }
-
-      const result = data.data || {};
-      setDate(result.lastContactDate || date);
-      setMedium(normalizeMedium(result.lastContactMedium) || medium);
-      setSummary(result.summary || text);
-      setItems(makeReviewItems(result, person));
+      const result = await analyzeStoryTextForReview({ person, text, date, medium });
+      setDate(result.date);
+      setMedium(result.medium);
+      setSummary(result.summary);
+      setItems(result.items);
       setStep("review");
     } catch (err: any) {
       setError(err.message || "AI 정리에 실패했어요. 잠시 뒤 다시 시도하거나 그대로 기록해주세요.");
@@ -177,7 +218,7 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
             <p className="text-sm leading-relaxed text-[#7c6252]">먼저 누구의 이야기인지 선택해주세요.</p>
             <label className="relative block">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8f7564]" />
-              <input value={personQuery} onChange={(event) => setPersonQuery(event.target.value)} placeholder="이름, 관계, 그룹, 관심사 검색" className="saram-input h-11 pl-10 pr-3 text-sm" />
+              <input value={personQuery} onChange={(event) => setPersonQuery(event.target.value)} placeholder="이름, 관계, 그룹, 관심사 검색" className="saram-input saram-search-input h-11 text-sm" />
             </label>
             <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
               {filteredPeople.map((item) => (
