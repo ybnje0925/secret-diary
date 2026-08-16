@@ -23,6 +23,8 @@ type EntryStage = "unlock" | "onboarding" | "pin-setup";
 const MIN_AUTO_LOCK_GRACE_MS = 10 * 60 * 1000;
 
 export default function App() {
+  const testToolsEnabled =
+    import.meta.env.VITE_ENABLE_TEST_TOOLS === "true";
   const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
   const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
@@ -496,6 +498,14 @@ export default function App() {
     setSelectedPersonId(importedPeople[0]?.id || null);
   };
 
+  const handleReplaceData = (nextPeople: Person[], nextGroups: CustomGroup[]) => {
+    setPeople(nextPeople);
+    setCustomGroups(nextGroups);
+    persistVault(nextPeople, nextGroups);
+    setSelectedPersonId(nextPeople[0]?.id || null);
+    setFirstUsePromptDismissed(false);
+  };
+
   const handleClearAllData = () => {
     requestConfirm({
       title: "모든 데이터를 삭제할까요?",
@@ -562,7 +572,7 @@ export default function App() {
   return (
     <div className="min-h-[100svh] bg-[#fff8ef] text-[#2f1b12]">
       <main className="mx-auto min-h-[100svh] w-full max-w-md px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] md:max-w-3xl lg:max-w-5xl">
-        {people.length === 0 && layer === "root" ? (
+        {people.length === 0 && layer === "root" && !(testToolsEnabled && activeTab === "settings") ? (
           <div className="flex min-h-[70vh] flex-col justify-center space-y-4 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f8d8c7] text-3xl">🌿</div>
             <div>
@@ -647,17 +657,19 @@ export default function App() {
                 appSettings={appSettings}
                 onSettingsChange={updateAppSettings}
                 onImport={handleImportBackup}
+                onReplaceData={handleReplaceData}
                 onClearAll={handleClearAllData}
                 onRequestConfirm={requestConfirm}
                 onLock={handleLock}
                 onVaultRekey={handleVaultRekey}
+                onOpenPerson={openPerson}
               />
             )}
           </>
         )}
       </main>
 
-      {layer === "root" && people.length > 0 && !keyboardOpen && (
+      {layer === "root" && (people.length > 0 || testToolsEnabled) && !keyboardOpen && (
         <BottomNavigation
           activeTab={activeTab}
           onChangeTab={(tab) => {
