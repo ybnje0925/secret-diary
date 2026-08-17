@@ -1,18 +1,25 @@
 import { useEffect } from "react";
 
+let lockCount = 0;
+let previousOverflow = "";
+
 export default function useBodyScrollLock(active = true) {
   useEffect(() => {
     if (!active) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousTouchAction = document.body.style.touchAction;
-    document.body.classList.add("saram-no-scroll");
-    document.body.style.overflow = "hidden";
-    document.body.style.touchAction = "none";
+
+    if (lockCount === 0) {
+      previousOverflow = document.body.style.overflow;
+      document.body.classList.add("saram-no-scroll");
+      document.body.style.overflow = "hidden";
+    }
+    lockCount += 1;
 
     return () => {
-      document.body.classList.remove("saram-no-scroll");
-      document.body.style.overflow = previousOverflow;
-      document.body.style.touchAction = previousTouchAction;
+      lockCount = Math.max(0, lockCount - 1);
+      if (lockCount === 0) {
+        document.body.classList.remove("saram-no-scroll");
+        document.body.style.overflow = previousOverflow;
+      }
     };
   }, [active]);
 }

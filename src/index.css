@@ -74,7 +74,6 @@ button {
 
 .saram-no-scroll {
   overflow: hidden;
-  touch-action: none;
 }
 
 .saram-sheet-overlay {
@@ -96,9 +95,16 @@ button {
   max-height: min(92dvh, calc(100dvh - max(1rem, env(safe-area-inset-top)) - max(0.75rem, env(safe-area-inset-bottom))));
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   border-radius: 22px;
   background: #fffaf3;
   box-shadow: 0 14px 40px rgba(47, 27, 18, 0.18);
+  -webkit-overflow-scrolling: touch;
+}
+
+.saram-sheet [class*="overflow-y-auto"],
+[role="dialog"][aria-modal="true"] {
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
 
