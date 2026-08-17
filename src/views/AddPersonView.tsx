@@ -82,7 +82,9 @@ export default function AddPersonView({ person, people, customGroups, initialNam
     lastContactDate,
     lastContactMedium,
     remindIntervalDays: Number(remindIntervalDays) || 60,
-    history: person?.history || []
+    history: person?.history || [],
+    followUps: person?.followUps || [],
+    aiBriefing: person?.aiBriefing
   };
 
   useEffect(() => {
@@ -152,7 +154,9 @@ export default function AddPersonView({ person, people, customGroups, initialNam
         ? person.history
         : memo.trim()
           ? [{ id: `h_${Date.now()}`, date: today, medium: "기타", summary: memo.trim() }]
-          : []
+          : [],
+      followUps: person?.followUps || [],
+      aiBriefing: person?.aiBriefing
     });
   };
 

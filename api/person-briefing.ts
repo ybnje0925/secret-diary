@@ -1,4 +1,4 @@
-import { checkInStarters } from "../server/ai.js";
+import { personBriefing } from "../server/ai.js";
 
 export default async function handler(req: any, res: any) {
   setJson(res);
@@ -7,13 +7,14 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const result = await checkInStarters(parseBody(req));
+    const result = await personBriefing(parseBody(req));
     return res.status(result.status || 200).json(result.body);
   } catch {
-    return res.status(410).json({
-      success: false,
-      disabled: true,
-      error: "AI 추천문구 생성 기능은 현재 사용하지 않습니다.",
+    return res.status(200).json({
+      success: true,
+      data: {},
+      fallback: true,
+      error: "AI 연결이 불안정해 저장된 기록만으로 브리핑했어요.",
       meta: { provider: "local", fallback: true, reason: "GEMINI_REQUEST_FAILED" }
     });
   }

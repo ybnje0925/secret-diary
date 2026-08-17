@@ -1,4 +1,4 @@
-import { Person, CustomGroup, ChildInfo, Preferences, EventHistoryItem } from "./types";
+import { Person, CustomGroup, ChildInfo, Preferences, EventHistoryItem, FollowUpItem, AiMemoryTag, RecordAiAnalysis, PersonAiBriefing } from "./types";
 import { generateSalt, deriveKey, encryptText, decryptText, toBase64, fromBase64 } from "./crypto";
 
 const SALT_KEY = "yongjja_salt";
@@ -48,9 +48,72 @@ function migrateEventsHistory(raw: any): EventHistoryItem[] {
   }));
 }
 
-export function migratePersonSchema(raw: any): Person {
+function migrateFollowUps(raw: any, personId: string): FollowUpItem[] {
+  if (!Array.isArray(raw?.followUps)) return [];
+  return raw.followUps
+    .filter((item: any) => item?.text)
+    .map((item: any) => ({
+      id: item.id || "fu_" + Math.random().toString(36).slice(2),
+      personId: item.personId || personId,
+      sourceRecordId: item.sourceRecordId || "",
+      text: String(item.text || "").trim(),
+      status: item.status === "completed" ? "completed" : "pending",
+      createdAt: item.createdAt || new Date().toISOString(),
+      completedAt: item.completedAt || undefined,
+      resultRecordId: item.resultRecordId || undefined
+    }));
+}
+
+function migrateAiTags(raw: any): AiMemoryTag[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((tag: any) => tag?.category && tag?.text)
+    .map((tag: any) => ({
+      category: tag.category,
+      text: String(tag.text || "").trim()
+    }))
+    .filter((tag: AiMemoryTag) => tag.text);
+}
+
+function migrateRecordAiAnalysis(raw: any): RecordAiAnalysis | undefined {
+  if (!raw?.inputHash || !raw?.summary) return undefined;
   return {
-    id: raw.id,
+    inputHash: String(raw.inputHash),
+    summary: String(raw.summary || ""),
+    briefing: raw.briefing ? String(raw.briefing) : undefined,
+    tags: migrateAiTags(raw.tags),
+    analyzedAt: raw.analyzedAt || new Date().toISOString(),
+    provider: raw.provider === "gemini" ? "gemini" : raw.provider === "local" ? "local" : undefined,
+    model: raw.model || undefined,
+    fallback: typeof raw.fallback === "boolean" ? raw.fallback : undefined
+  };
+}
+
+function migrateHistory(raw: any): any[] {
+  if (!Array.isArray(raw?.history)) return [];
+  return raw.history.map((item: any) => ({
+    ...item,
+    aiAnalysis: migrateRecordAiAnalysis(item?.aiAnalysis)
+  }));
+}
+
+function migratePersonAiBriefing(raw: any): PersonAiBriefing | undefined {
+  if (!raw?.aiBriefing?.sourceHash || !raw?.aiBriefing?.text) return undefined;
+  return {
+    sourceHash: String(raw.aiBriefing.sourceHash),
+    text: String(raw.aiBriefing.text || ""),
+    tags: migrateAiTags(raw.aiBriefing.tags),
+    updatedAt: raw.aiBriefing.updatedAt || new Date().toISOString(),
+    provider: raw.aiBriefing.provider === "gemini" ? "gemini" : raw.aiBriefing.provider === "local" ? "local" : undefined,
+    model: raw.aiBriefing.model || undefined,
+    fallback: typeof raw.aiBriefing.fallback === "boolean" ? raw.aiBriefing.fallback : undefined
+  };
+}
+
+export function migratePersonSchema(raw: any): Person {
+  const id = raw.id;
+  return {
+    id,
     name: raw.name || "",
     phone: raw.phone || "",
     company: raw.company || "",
@@ -67,7 +130,9 @@ export function migratePersonSchema(raw: any): Person {
     lastContactDate: raw.lastContactDate || "",
     lastContactMedium: raw.lastContactMedium || "기타",
     remindIntervalDays: typeof raw.remindIntervalDays === "number" ? raw.remindIntervalDays : undefined,
-    history: Array.isArray(raw.history) ? raw.history : []
+    history: migrateHistory(raw),
+    followUps: migrateFollowUps(raw, id),
+    aiBriefing: migratePersonAiBriefing(raw)
   };
 }
 

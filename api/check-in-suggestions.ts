@@ -10,12 +10,12 @@ export default async function handler(req: any, res: any) {
     const result = await checkInSuggestions(parseBody(req));
     return res.status(result.status || 200).json(result.body);
   } catch {
-    return res.status(200).json({
-      success: true,
+    return res.status(410).json({
+      success: false,
+      disabled: true,
       data: { topics: [] },
-      fallback: true,
-      error: "AI 연결이 잠시 불안정해요. 저장된 기록으로 계속 사용할 수 있어요.",
-      meta: { provider: "local", fallback: true, reason: "GEMINI_REQUEST_FAILED" }
+      error: "AI 안부 추천 기능은 현재 사용하지 않습니다.",
+      meta: { provider: "local", fallback: true, reason: "AI_ROLE_DISABLED" }
     });
   }
 }

@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarDays, Edit3, HeartHandshake, MoreHorizontal, Phone, Plus, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarDays, CheckCircle2, Edit3, HeartHandshake, MoreHorizontal, Phone, Plus, Star, Trash2 } from "lucide-react";
 import { useState } from "react";
 import Avatar from "../components/common/Avatar";
 import EventHistorySection from "../components/person/EventHistorySection";
@@ -7,8 +7,9 @@ import PersonInfoSection from "../components/person/PersonInfoSection";
 import PersonTimeline from "../components/person/PersonTimeline";
 import QuickRecordPanel from "../components/person/QuickRecordPanel";
 import type { StorySavePayload } from "../components/person/StoryCaptureSheet";
-import { EventHistoryItem, InteractionHistory, Person } from "../types";
-import { daysSince, getRelationLine } from "../utils/saramdam";
+import { EventHistoryItem, FollowUpItem, InteractionHistory, Person, PersonAiBriefing } from "../types";
+import { getCompletedFollowUps, getPendingFollowUps } from "../utils/followUps";
+import { daysSince, formatDateKo, getRelationLine } from "../utils/saramdam";
 import type { EditSection } from "./AddPersonView";
 
 interface Props {
@@ -20,10 +21,14 @@ interface Props {
   onStartCheckIn: () => void;
   aiEnabled?: boolean;
   onSaveStory: (payload: StorySavePayload) => void;
-  onUpdateHistory: (history: InteractionHistory) => void;
+  onUpdateHistory: (history: InteractionHistory, followUpText?: string | null) => void;
   onDeleteHistory: (historyId: string) => void;
+  onSaveBriefing: (briefing: PersonAiBriefing) => void;
   onSaveEvent: (event: EventHistoryItem) => void;
   onDeleteEvent: (eventId: string) => void;
+  onCompleteFollowUp: (followUpId: string) => void;
+  onDeleteFollowUp: (followUpId: string) => void;
+  onStartFollowUpStory: (followUpId: string, referenceText: string) => void;
 }
 
 const tabs = ["최근 이야기", "전체 기록", "빠른 기록", "정보", "함께한 마음"] as const;
@@ -40,8 +45,12 @@ export default function PersonDetailView({
   onSaveStory,
   onUpdateHistory,
   onDeleteHistory,
+  onSaveBriefing,
   onSaveEvent,
-  onDeleteEvent
+  onDeleteEvent,
+  onCompleteFollowUp,
+  onDeleteFollowUp,
+  onStartFollowUpStory
 }: Props) {
   const [activeTab, setActiveTab] = useState<DetailTab>("최근 이야기");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -91,7 +100,14 @@ export default function PersonDetailView({
         </span>
       </div>
 
-      <MemorySummaryCard person={person} onEdit={() => onEdit("preferences")} />
+      <MemorySummaryCard person={person} aiEnabled={aiEnabled} onEdit={() => onEdit("preferences")} onSaveBriefing={onSaveBriefing} />
+
+      <FollowUpSection
+        person={person}
+        onComplete={onCompleteFollowUp}
+        onDelete={onDeleteFollowUp}
+        onStartStory={onStartFollowUpStory}
+      />
 
       {person.history.length === 0 && !person.preferences.notes && (
         <section className="rounded-[18px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center shadow-soft">
@@ -130,5 +146,111 @@ export default function PersonDetailView({
       {activeTab === "정보" && <PersonInfoSection person={person} onEdit={onEdit} />}
       {activeTab === "함께한 마음" && <EventHistorySection person={person} onSaveEvent={onSaveEvent} onDeleteEvent={onDeleteEvent} />}
     </div>
+  );
+}
+
+function FollowUpSection({
+  person,
+  onComplete,
+  onDelete,
+  onStartStory
+}: {
+  person: Person;
+  onComplete: (followUpId: string) => void;
+  onDelete: (followUpId: string) => void;
+  onStartStory: (followUpId: string, referenceText: string) => void;
+}) {
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [completedPrompt, setCompletedPrompt] = useState<FollowUpItem | null>(null);
+  const pending = getPendingFollowUps(person);
+  const completed = getCompletedFollowUps(person);
+
+  return (
+    <section className="rounded-[18px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">챙길 이야기</h2>
+        {completed.length > 0 && (
+          <button onClick={() => setShowCompleted((value) => !value)} className="rounded-full border border-[#ead8c9] bg-white px-3 py-1 text-xs font-medium text-[#5a392a]">
+            완료된 이야기 {completed.length}
+          </button>
+        )}
+      </div>
+
+      {completedPrompt && (
+        <section className="mb-3 rounded-2xl border border-[#ead8c9] bg-[#fff8ef] p-3">
+          <p className="text-sm font-semibold text-[#d85b36]">물어봤어요 ✓</p>
+          <h3 className="mt-1 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">새로 알게 된 내용이 있나요?</h3>
+          <p className="mt-1 text-sm leading-[1.6] text-[#7c6252]">“{completedPrompt.text}”에 이어지는 이야기를 남길 수 있어요.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={() => {
+                onStartStory(completedPrompt.id, completedPrompt.text);
+                setCompletedPrompt(null);
+              }}
+              className="rounded-full bg-[#d85b36] py-2 text-xs font-semibold text-white"
+            >
+              기록 남기기
+            </button>
+            <button onClick={() => setCompletedPrompt(null)} className="rounded-full border border-[#ead8c9] bg-white py-2 text-xs font-medium text-[#5a392a]">
+              그냥 완료
+            </button>
+          </div>
+        </section>
+      )}
+
+      {pending.length === 0 ? (
+        <p className="text-sm leading-[1.6] text-[#7c6252]">다음에 챙길 이야기가 아직 없어요.</p>
+      ) : (
+        <div className="space-y-2.5">
+          {pending.map((item) => (
+            <div key={item.id}>
+              <FollowUpRow
+                item={item}
+                onComplete={(followUpId) => {
+                  onComplete(followUpId);
+                  setCompletedPrompt(item);
+                }}
+                onDelete={onDelete}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showCompleted && completed.length > 0 && (
+        <div className="mt-3 space-y-2 border-t border-[#ead8c9] pt-3">
+          {completed.map((item) => (
+            <div key={item.id} className="rounded-2xl bg-white/70 px-3 py-2.5">
+              <p className="text-sm font-medium leading-[1.55] text-[#5a392a]">{item.text}</p>
+              <p className="mt-1 text-xs text-[#8f7564]">물어본 날 {item.completedAt ? formatDateKo(item.completedAt.slice(0, 10)) : "-"}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FollowUpRow({
+  item,
+  onComplete,
+  onDelete
+}: {
+  item: FollowUpItem;
+  onComplete: (followUpId: string) => void;
+  onDelete: (followUpId: string) => void;
+}) {
+  return (
+    <article className="rounded-2xl bg-white/70 p-3">
+      <p className="text-[14px] font-medium leading-[1.6] text-[#2f1b12]">{item.text}</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button onClick={() => onComplete(item.id)} className="rounded-full bg-[#d85b36] py-2 text-xs font-semibold text-white">
+          <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" /> 물어봤어요
+        </button>
+        <button onClick={() => onDelete(item.id)} className="rounded-full border border-[#ead8c9] bg-white py-2 text-xs font-medium text-[#c95735]">
+          삭제
+        </button>
+      </div>
+    </article>
   );
 }

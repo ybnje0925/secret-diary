@@ -5,8 +5,9 @@ import BottomNavigation, { AppTab } from "./components/navigation/BottomNavigati
 import LockScreen from "./components/LockScreen";
 import GroupManagerSheet from "./components/people/GroupManagerSheet";
 import StoryCaptureSheet, { ApprovedMemoryItem, StorySavePayload } from "./components/person/StoryCaptureSheet";
-import { CustomGroup, EventHistoryItem, InteractionHistory, Person } from "./types";
+import { CustomGroup, EventHistoryItem, InteractionHistory, Person, PersonAiBriefing } from "./types";
 import { AppSettings, loadAppSettings, saveAppSettings } from "./utils/appSettings";
+import { completeFollowUp, deleteFollowUp, deletePendingFollowUpForRecord, linkFollowUpResult, upsertPendingFollowUp } from "./utils/followUps";
 import { normalizeMemoryText } from "./utils/saramdam";
 import { clearIncompleteVaultSetup, getVaultStorageState, saveVault, VaultData } from "./vault";
 import AddPersonView, { EditSection } from "./views/AddPersonView";
@@ -20,6 +21,10 @@ import OnboardingView from "./views/OnboardingView";
 type AppLayer = "root" | "detail" | "add";
 type ConfirmRequest = ConfirmDialogOptions & { onConfirm: () => void };
 type EntryStage = "unlock" | "onboarding" | "pin-setup";
+type StoryContext = {
+  sourceFollowUpId?: string;
+  referenceText?: string;
+};
 const MIN_AUTO_LOCK_GRACE_MS = 10 * 60 * 1000;
 
 export default function App() {
@@ -35,6 +40,7 @@ export default function App() {
   const [peopleFilter, setPeopleFilter] = useState("전체");
   const [peopleSortMode, setPeopleSortMode] = useState<PeopleSortMode>("story");
   const [storyInitialPersonId, setStoryInitialPersonId] = useState<string | null | undefined>(undefined);
+  const [storyContext, setStoryContext] = useState<StoryContext | undefined>(undefined);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [editingSection, setEditingSection] = useState<EditSection | undefined>(undefined);
   const [addInitialName, setAddInitialName] = useState("");
@@ -90,6 +96,7 @@ export default function App() {
       }
       if (storyOpenRef.current) {
         setStoryInitialPersonId(undefined);
+        setStoryContext(undefined);
         window.history.pushState({ layer: historyLayerRef.current, guard: true }, "");
         return;
       }
@@ -118,6 +125,7 @@ export default function App() {
       historyLayerRef.current = nextLayer;
       setLayer(nextLayer);
       setStoryInitialPersonId(undefined);
+      setStoryContext(undefined);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -355,6 +363,19 @@ export default function App() {
     }));
   };
 
+  const handleUpdateHistoryWithFollowUp = (personId: string, history: InteractionHistory, followUpText?: string | null) => {
+    updatePerson(personId, (person) => {
+      const updated = {
+        ...person,
+        lastContactDate: person.history[0]?.id === history.id ? history.date : person.lastContactDate,
+        lastContactMedium: person.history[0]?.id === history.id ? history.medium : person.lastContactMedium,
+        history: person.history.map((item) => (item.id === history.id ? history : item))
+      };
+      if (followUpText === null) return deletePendingFollowUpForRecord(updated, history.id);
+      return followUpText?.trim() ? upsertPendingFollowUp(updated, history.id, followUpText) : updated;
+    });
+  };
+
   const handleDeleteHistory = (personId: string, historyId: string) => {
     requestConfirm({
       title: "이야기 기록을 삭제할까요?",
@@ -498,6 +519,27 @@ export default function App() {
     setSelectedPersonId(importedPeople[0]?.id || null);
   };
 
+  const handleSaveBriefing = (personId: string, briefing: PersonAiBriefing) => {
+    updatePerson(personId, (person) => ({
+      ...person,
+      aiBriefing: briefing
+    }));
+  };
+
+  const handleCompleteFollowUp = (personId: string, followUpId: string) => {
+    updatePerson(personId, (person) => completeFollowUp(person, followUpId));
+  };
+
+  const handleDeleteFollowUp = (personId: string, followUpId: string) => {
+    updatePerson(personId, (person) => deleteFollowUp(person, followUpId));
+  };
+
+  const startFollowUpStory = (personId: string, followUpId: string, referenceText: string) => {
+    setSelectedPersonId(personId);
+    setStoryContext({ sourceFollowUpId: followUpId, referenceText });
+    setStoryInitialPersonId(personId);
+  };
+
   const handleReplaceData = (nextPeople: Person[], nextGroups: CustomGroup[]) => {
     setPeople(nextPeople);
     setCustomGroups(nextGroups);
@@ -594,14 +636,21 @@ export default function App() {
                 onBack={closeLayer}
                 onEdit={() => openEditPerson(selectedPerson)}
                 onDeletePerson={() => handleDeletePerson(selectedPerson.id)}
-                onStartStory={() => setStoryInitialPersonId(selectedPerson.id)}
+                onStartStory={() => {
+                  setStoryContext(undefined);
+                  setStoryInitialPersonId(selectedPerson.id);
+                }}
                 onStartCheckIn={() => startCheckIn(selectedPerson.id)}
                 aiEnabled={appSettings.aiEnabled}
                 onSaveStory={(payload) => handleSaveStory(selectedPerson.id, payload)}
-                onUpdateHistory={(history) => handleUpdateHistory(selectedPerson.id, history)}
+                onUpdateHistory={(history, followUpText) => handleUpdateHistoryWithFollowUp(selectedPerson.id, history, followUpText)}
                 onDeleteHistory={(historyId) => handleDeleteHistory(selectedPerson.id, historyId)}
+                onSaveBriefing={(briefing) => handleSaveBriefing(selectedPerson.id, briefing)}
                 onSaveEvent={(event) => handleSaveEvent(selectedPerson.id, event)}
                 onDeleteEvent={(eventId) => handleDeleteEvent(selectedPerson.id, eventId)}
+                onCompleteFollowUp={(followUpId) => handleCompleteFollowUp(selectedPerson.id, followUpId)}
+                onDeleteFollowUp={(followUpId) => handleDeleteFollowUp(selectedPerson.id, followUpId)}
+                onStartFollowUpStory={(followUpId, referenceText) => startFollowUpStory(selectedPerson.id, followUpId, referenceText)}
               />
             )}
             {layer === "add" && (
@@ -647,6 +696,9 @@ export default function App() {
                     history: [history, ...person.history]
                   }));
                 }}
+                onCompleteFollowUp={handleCompleteFollowUp}
+                onDeleteFollowUp={handleDeleteFollowUp}
+                onStartFollowUpStory={startFollowUpStory}
               />
             )}
             {layer === "root" && activeTab === "settings" && (
@@ -677,7 +729,10 @@ export default function App() {
             setActiveTab(tab);
             setCheckInPersonId(null);
           }}
-          onQuickRecord={() => setStoryInitialPersonId(null)}
+          onQuickRecord={() => {
+            setStoryContext(undefined);
+            setStoryInitialPersonId(null);
+          }}
         />
       )}
 
@@ -687,10 +742,16 @@ export default function App() {
             people={people}
             aiEnabled={appSettings.aiEnabled}
             initialPersonId={storyInitialPersonId}
-            onClose={() => setStoryInitialPersonId(undefined)}
+            sourceFollowUpId={storyContext?.sourceFollowUpId}
+            referenceText={storyContext?.referenceText}
+            onClose={() => {
+              setStoryInitialPersonId(undefined);
+              setStoryContext(undefined);
+            }}
             onSave={(personId, payload) => {
               handleSaveStory(personId, payload);
               setStoryInitialPersonId(undefined);
+              setStoryContext(undefined);
             }}
           />
         )}
@@ -731,7 +792,7 @@ function applyApprovedStory(person: Person, payload: StorySavePayload): Person {
   const nextNotes = appendUniqueLines(person.preferences.notes, payload.approvedItems.filter((item) => item.category !== "family").map((item) => item.text));
   const nextChildren = applyFamilyItems(person, payload.approvedItems.filter((item) => item.category === "family"));
 
-  return {
+  const updatedPerson = {
     ...person,
     lastContactDate: payload.history.date,
     lastContactMedium: payload.history.medium,
@@ -745,6 +806,18 @@ function applyApprovedStory(person: Person, payload: StorySavePayload): Person {
       notes: nextNotes
     }
   };
+
+  let nextPerson = updatedPerson;
+
+  if (payload.sourceFollowUpId) {
+    nextPerson = linkFollowUpResult(nextPerson, payload.sourceFollowUpId, payload.history.id);
+  }
+
+  if (payload.followUp?.enabled && payload.followUp.text.trim()) {
+    return upsertPendingFollowUp(nextPerson, payload.history.id, payload.followUp.text);
+  }
+
+  return nextPerson;
 }
 
 function appendUniqueLines(existing: string, nextLines: string[]) {

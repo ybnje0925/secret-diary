@@ -2,8 +2,9 @@ import { AlertCircle, Check, ChevronRight, Loader2, MessageCircle, Mic, PenLine,
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import Avatar from "../common/Avatar";
-import { ChildInfo, ContactMedium, InteractionHistory, Person } from "../../types";
+import { AiMemoryTag, ChildInfo, ContactMedium, InteractionHistory, Person, RecordAiAnalysis } from "../../types";
 import { getRelationLine } from "../../utils/saramdam";
+import { FollowUpDraft, inferFollowUpText } from "../../utils/followUps";
 
 export interface ApprovedMemoryItem {
   id: string;
@@ -17,18 +18,31 @@ export interface ApprovedMemoryItem {
 export interface StorySavePayload {
   history: InteractionHistory;
   approvedItems: ApprovedMemoryItem[];
+  followUp?: FollowUpDraft;
+  sourceFollowUpId?: string;
 }
 
 interface Props {
   people: Person[];
   aiEnabled?: boolean;
   initialPersonId?: string | null;
+  sourceFollowUpId?: string;
+  referenceText?: string;
   onClose: () => void;
   onSave: (personId: string, payload: StorySavePayload) => void;
 }
 
 const mediumOptions: ContactMedium[] = ["통화", "카톡", "식사", "대면", "메시지", "기타"];
 const maxTextLength = 12000;
+const analysisCache = new Map<string, StoryAnalysisResult>();
+
+type StoryAnalysisResult = {
+  date: string;
+  medium: ContactMedium;
+  summary: string;
+  items: ApprovedMemoryItem[];
+  aiAnalysis: RecordAiAnalysis;
+};
 
 export async function analyzeStoryTextForReview({
   person,
@@ -41,6 +55,11 @@ export async function analyzeStoryTextForReview({
   date: string;
   medium: ContactMedium;
 }) {
+  const aiText = redactDirectIdentifiers(text);
+  const inputHash = makeAnalysisHash(person.id, aiText);
+  const cached = analysisCache.get(inputHash);
+  if (cached) return cached;
+
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), 18000);
 
@@ -49,7 +68,7 @@ export async function analyzeStoryTextForReview({
     response = await fetch("/api/summarize-text", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ selectedPersonName: person.name, scriptText: text }),
+      body: JSON.stringify({ selectedPersonId: person.id, scriptText: aiText }),
       signal: controller.signal
     });
   } catch (error: any) {
@@ -68,27 +87,42 @@ export async function analyzeStoryTextForReview({
   }
 
   const result = data.data || {};
-  return {
+  const analysis: StoryAnalysisResult = {
     date: result.lastContactDate || date,
     medium: normalizeMedium(result.lastContactMedium) || medium,
     summary: result.summary || text,
-    items: makeReviewItems(result, person)
+    items: makeReviewItems(result, person),
+    aiAnalysis: {
+      inputHash: result.analysisHash || inputHash,
+      summary: result.summary || text,
+      briefing: result.briefing || result.summary || text,
+      tags: normalizeAiTags(result.tags),
+      analyzedAt: result.analyzedAt || new Date().toISOString(),
+      provider: result.provider === "gemini" ? "gemini" : "local",
+      model: result.model || undefined,
+      fallback: Boolean(result.fallback || data.fallback || data.simulated)
+    }
   };
+  analysisCache.set(inputHash, analysis);
+  return analysis;
 }
 
 function getSpeechRecognitionCtor(): any {
   return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null;
 }
 
-export default function StoryCaptureSheet({ people, aiEnabled = true, initialPersonId, onClose, onSave }: Props) {
+export default function StoryCaptureSheet({ people, aiEnabled = true, initialPersonId, sourceFollowUpId, referenceText, onClose, onSave }: Props) {
   const [selectedPersonId, setSelectedPersonId] = useState(initialPersonId || "");
-  const [step, setStep] = useState<"person" | "method" | "input" | "review" | "done">(initialPersonId ? "method" : "person");
-  const [method, setMethod] = useState<"voice" | "paste" | "direct" | null>(null);
+  const [step, setStep] = useState<"person" | "method" | "input" | "review" | "done">(sourceFollowUpId && initialPersonId ? "input" : initialPersonId ? "method" : "person");
+  const [method, setMethod] = useState<"voice" | "paste" | "direct" | null>(sourceFollowUpId ? "direct" : null);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [medium, setMedium] = useState<ContactMedium>("식사");
   const [text, setText] = useState("");
   const [summary, setSummary] = useState("");
   const [items, setItems] = useState<ApprovedMemoryItem[]>([]);
+  const [aiAnalysis, setAiAnalysis] = useState<RecordAiAnalysis | undefined>(undefined);
+  const [followUpEnabled, setFollowUpEnabled] = useState(false);
+  const [followUpText, setFollowUpText] = useState("");
   const [personQuery, setPersonQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -148,6 +182,8 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
     if (!trimmed) return;
     setSummary(trimmed);
     setItems([]);
+    setAiAnalysis(undefined);
+    if (!followUpText.trim()) setFollowUpText(inferFollowUpText(trimmed));
     setStep("review");
   };
 
@@ -170,6 +206,8 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
       setMedium(result.medium);
       setSummary(result.summary);
       setItems(result.items);
+      setAiAnalysis(result.aiAnalysis);
+      if (!followUpText.trim()) setFollowUpText(inferFollowUpText(result.summary || text));
       setStep("review");
     } catch (err: any) {
       setError(err.message || "AI 정리에 실패했어요. 잠시 뒤 다시 시도하거나 그대로 기록해주세요.");
@@ -186,9 +224,15 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
         date,
         medium,
         summary: summary.trim(),
-        rawTranscript: text.trim() || undefined
+        rawTranscript: text.trim() || undefined,
+        aiAnalysis
       },
-      approvedItems: items.filter((item) => item.selected && item.text.trim()).map((item) => ({ ...item, text: item.text.trim() }))
+      approvedItems: items.filter((item) => item.selected && item.text.trim()).map((item) => ({ ...item, text: item.text.trim() })),
+      followUp: {
+        enabled: followUpEnabled,
+        text: followUpText.trim() || inferFollowUpText(summary)
+      },
+      sourceFollowUpId
     });
     setStep("done");
     window.setTimeout(onClose, 900);
@@ -241,6 +285,12 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
 
         {step === "input" && person && (
           <div className="space-y-4">
+            {referenceText && (
+              <section className="rounded-2xl border border-[#ead8c9] bg-[#fff8ef] p-3">
+                <p className="text-xs font-semibold text-[#8d5b45]">이어지는 챙길 이야기</p>
+                <p className="mt-1 text-sm font-medium leading-[1.6] text-[#2f1b12]">{referenceText}</p>
+              </section>
+            )}
             <RecordBasics date={date} medium={medium} onDateChange={setDate} onMediumChange={setMedium} />
             {method === "voice" && (
               <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
@@ -295,6 +345,13 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
               <span className="mb-2 block text-sm font-semibold text-[#2f1b12]">오늘 이야기 요약</span>
               <textarea value={summary} onChange={(event) => setSummary(event.target.value)} className="saram-input min-h-32 resize-none text-[15px] leading-[1.65]" />
             </label>
+            <FollowUpEditor
+              enabled={followUpEnabled}
+              text={followUpText}
+              fallbackText={inferFollowUpText(summary)}
+              onEnabledChange={setFollowUpEnabled}
+              onTextChange={setFollowUpText}
+            />
             {items.length > 0 && (
               <div className="space-y-3">
                 {items.map((item, index) => (
@@ -381,6 +438,45 @@ function normalizeMedium(value: unknown): ContactMedium | null {
   return null;
 }
 
+function FollowUpEditor({
+  enabled,
+  text,
+  fallbackText,
+  onEnabledChange,
+  onTextChange
+}: {
+  enabled: boolean;
+  text: string;
+  fallbackText: string;
+  onEnabledChange: (value: boolean) => void;
+  onTextChange: (value: string) => void;
+}) {
+  return (
+    <section className="rounded-2xl border border-[#ead8c9] bg-white/70 p-4">
+      <label className="flex items-center gap-2 text-sm font-semibold text-[#2f1b12]">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(event) => {
+            onEnabledChange(event.target.checked);
+            if (event.target.checked && !text.trim()) onTextChange(fallbackText);
+          }}
+          className="h-5 w-5 accent-[#d85b36]"
+        />
+        다음에 챙기기
+      </label>
+      {enabled && (
+        <input
+          value={text}
+          onChange={(event) => onTextChange(event.target.value)}
+          placeholder="예) 승진 심사 결과"
+          className="saram-input mt-3 py-3 text-sm"
+        />
+      )}
+    </section>
+  );
+}
+
 async function readAiJson(response: Response, parseErrorMessage: string): Promise<any> {
   const text = await response.text();
   try {
@@ -435,7 +531,45 @@ function makeReviewItems(result: any, person: Person): ApprovedMemoryItem[] {
     });
   }
 
+  normalizeAiTags(result.tags).forEach((tag, index) => {
+    const category = tag.category === "family" ? "family" : tag.category === "promise" || tag.category === "schedule" ? "promise" : "preference";
+    items.push({
+      id: `tag_${index}`,
+      category,
+      label: tagLabel(tag.category),
+      text: tag.text,
+      selected: category !== "family" && isWorthAdding(tag.text, person.preferences.notes)
+    });
+  });
+
   return dedupeItems(items).slice(0, 8);
+}
+
+function normalizeAiTags(raw: any): AiMemoryTag[] {
+  const allowed = new Set(["work", "family", "interest", "health", "hobby", "schedule", "recent", "preference", "promise"]);
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((tag: any) => ({
+      category: allowed.has(String(tag?.category)) ? tag.category : "recent",
+      text: String(tag?.text || "").trim()
+    }))
+    .filter((tag) => tag.text)
+    .slice(0, 8);
+}
+
+function tagLabel(category: AiMemoryTag["category"]) {
+  const labels: Record<AiMemoryTag["category"], string> = {
+    work: "직장",
+    family: "가족",
+    interest: "관심사",
+    health: "건강",
+    hobby: "취미",
+    schedule: "일정",
+    recent: "근황",
+    preference: "취향",
+    promise: "약속"
+  };
+  return labels[category];
 }
 
 function isWorthAdding(nextText: string, existingText: string) {
@@ -456,4 +590,20 @@ function dedupeItems(items: ApprovedMemoryItem[]) {
 
 function normalizeText(value: string) {
   return value.replace(/\s+/g, "").replace(/[.,!?'"“”]/g, "").toLowerCase();
+}
+
+function makeAnalysisHash(personId: string, text: string) {
+  let hash = 5381;
+  const value = `${personId}:${text.trim()}`;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index);
+  }
+  return `ai_${(hash >>> 0).toString(36)}`;
+}
+
+function redactDirectIdentifiers(value: string) {
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/(?:\+?82[-.\s]?)?0?1[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/g, "[phone]")
+    .replace(/\d{2,4}[-\s]?\d{3,4}[-\s]?\d{4}/g, "[phone]");
 }
