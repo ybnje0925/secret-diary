@@ -10,6 +10,33 @@ export type CategoryType =
   | "외부 기타";
 
 export type ContactMedium = "통화" | "카톡" | "식사" | "대면" | "메시지" | "기타";
+export type AiMemoryCategory = "work" | "family" | "interest" | "health" | "hobby" | "schedule" | "recent" | "preference" | "promise";
+
+export interface AiMemoryTag {
+  category: AiMemoryCategory;
+  text: string;
+}
+
+export interface RecordAiAnalysis {
+  inputHash: string;
+  summary: string;
+  briefing?: string;
+  tags: AiMemoryTag[];
+  analyzedAt: string;
+  provider?: "gemini" | "local";
+  model?: string;
+  fallback?: boolean;
+}
+
+export interface PersonAiBriefing {
+  sourceHash: string;
+  text: string;
+  tags: AiMemoryTag[];
+  updatedAt: string;
+  provider?: "gemini" | "local";
+  model?: string;
+  fallback?: boolean;
+}
 
 export interface ChildInfo {
   name: string;
@@ -29,6 +56,20 @@ export interface InteractionHistory {
   medium: ContactMedium;
   summary: string;
   rawTranscript?: string;
+  aiAnalysis?: RecordAiAnalysis;
+}
+
+export type FollowUpStatus = "pending" | "completed";
+
+export interface FollowUpItem {
+  id: string;
+  personId: string;
+  sourceRecordId: string;
+  text: string;
+  status: FollowUpStatus;
+  createdAt: string;
+  completedAt?: string;
+  resultRecordId?: string;
 }
 
 export interface Preferences {
@@ -65,6 +106,8 @@ export interface Person {
   lastContactMedium: ContactMedium;
   remindIntervalDays?: number;
   history: InteractionHistory[];
+  followUps?: FollowUpItem[];
+  aiBriefing?: PersonAiBriefing;
 }
 
 export interface CustomGroup {

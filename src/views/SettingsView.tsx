@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ConfirmDialogOptions } from "../components/common/ConfirmDialog";
 import { CustomGroup, Person } from "../types";
 import { AppSettings } from "../utils/appSettings";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
 import {
   changeVaultPin,
   decryptBackupPayload,
@@ -73,6 +74,7 @@ type AiHealthResult = {
   diagnostics?: AiDiagnostics;
   endpoints?: {
     summarize?: string;
+    personBriefing?: string;
     checkInSuggestions?: string;
     checkInStarters?: string;
   };
@@ -445,9 +447,11 @@ export default function SettingsView({
                   <dd className="text-[#5a392a]">{aiHealth.configured ? "정상" : "없음"}</dd>
                   <dt className="font-medium text-[#8f7564]">이야기 정리</dt>
                   <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.summarize)}</dd>
-                  <dt className="font-medium text-[#8f7564]">안부 추천</dt>
+                  <dt className="font-medium text-[#8f7564]">최근 브리핑</dt>
+                  <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.personBriefing)}</dd>
+                  <dt className="font-medium text-[#8f7564]">중지된 추천 API</dt>
                   <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.checkInSuggestions)}</dd>
-                  <dt className="font-medium text-[#8f7564]">안부 문구</dt>
+                  <dt className="font-medium text-[#8f7564]">중지된 문구 API</dt>
                   <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.checkInStarters)}</dd>
                   {(aiHealth.reason || aiHealth.meta?.reason) && (
                     <>
@@ -523,13 +527,13 @@ export default function SettingsView({
         <ModalShell title="AI가 사용하는 정보" onClose={() => setAiInfoOpen(false)}>
           <div className="space-y-4 text-sm leading-relaxed text-[#5e473a]">
             <InfoBlock title="이야기 정리">
-              사용자가 직접 입력하거나 붙여넣은 텍스트를 분석합니다. 저장 여부는 사용자가 마지막에 선택합니다.
+              사용자가 직접 입력하거나 붙여넣은 텍스트에서 핵심 정보, 가족, 관심사, 일정 같은 기억할 내용을 정리합니다. 저장 여부는 사용자가 마지막에 선택합니다.
             </InfoBlock>
-            <InfoBlock title="안부 추천">
-              선택한 사람의 일부 기록과 프로필 정보만 사용합니다. 전체 vault를 AI로 전송하지 않습니다.
+            <InfoBlock title="최근 기록 브리핑">
+              사용자가 버튼을 누를 때만 최근 기록 일부를 보내 2~4줄 브리핑을 만들고, 같은 기록이면 저장된 결과를 다시 보여줍니다.
             </InfoBlock>
             <InfoBlock title="AI를 끄면">
-              사람 등록, 직접 기록, 검색, 상세보기, 백업/복원은 계속 사용할 수 있고 AI 정리와 AI 안부 문구만 비활성화됩니다.
+              사람 등록, 직접 기록, 검색, 상세보기, 백업/복원은 계속 사용할 수 있고 AI 기록 정리와 최근 브리핑만 비활성화됩니다.
             </InfoBlock>
           </div>
         </ModalShell>
@@ -690,9 +694,11 @@ function RestorePinModal({
 }
 
 function ModalShell({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  useBodyScrollLock();
+
   return (
-    <div className="fixed inset-0 z-[80] flex items-end bg-black/30 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:justify-center">
-      <section className="w-full max-w-sm rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.16)]">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center overflow-hidden bg-black/30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center">
+      <section className="max-h-[min(92dvh,calc(100dvh-2rem))] w-full max-w-sm overflow-y-auto rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.16)]">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{title}</h2>
           <button onClick={onClose} className="rounded-full bg-[#f4e8dc] p-2 text-[#5a392a]">
@@ -743,6 +749,7 @@ function providerLabel(provider?: string) {
 function endpointLabel(status?: string) {
   if (status === "ok") return "정상";
   if (status === "fallback") return "fallback";
+  if (status === "disabled") return "사용 안 함";
   return "-";
 }
 

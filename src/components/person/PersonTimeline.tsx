@@ -1,11 +1,13 @@
 import { MoreHorizontal } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ContactMedium, InteractionHistory, Person } from "../../types";
+import { findPendingFollowUpForRecord, inferFollowUpText } from "../../utils/followUps";
 import { formatDateKo } from "../../utils/saramdam";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 interface Props {
   person: Person;
-  onUpdateHistory: (history: InteractionHistory) => void;
+  onUpdateHistory: (history: InteractionHistory, followUpText?: string | null) => void;
   onDeleteHistory: (historyId: string) => void;
 }
 
@@ -60,9 +62,10 @@ export default function PersonTimeline({ person, onUpdateHistory, onDeleteHistor
       {editing && (
         <HistoryEditor
           history={editing}
+          person={person}
           onClose={() => setEditing(null)}
-          onSave={(history) => {
-            onUpdateHistory(history);
+          onSave={(history, followUpText) => {
+            onUpdateHistory(history, followUpText);
             setEditing(null);
           }}
         />
@@ -71,21 +74,38 @@ export default function PersonTimeline({ person, onUpdateHistory, onDeleteHistor
   );
 }
 
-function HistoryEditor({ history, onClose, onSave }: { history: InteractionHistory; onClose: () => void; onSave: (history: InteractionHistory) => void }) {
+function HistoryEditor({
+  history,
+  person,
+  onClose,
+  onSave
+}: {
+  history: InteractionHistory;
+  person: Person;
+  onClose: () => void;
+  onSave: (history: InteractionHistory, followUpText?: string | null) => void;
+}) {
+  useBodyScrollLock();
+  const existingFollowUp = findPendingFollowUpForRecord(person, history.id);
   const [date, setDate] = useState(history.date);
   const [medium, setMedium] = useState<ContactMedium>(history.medium);
   const [summary, setSummary] = useState(history.summary);
+  const [followUpEnabled, setFollowUpEnabled] = useState(Boolean(existingFollowUp));
+  const [followUpText, setFollowUpText] = useState(existingFollowUp?.text || "");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
+    <div className="saram-sheet-overlay" onClick={onClose}>
       <form
         onSubmit={(event) => {
           event.preventDefault();
           if (!summary.trim()) return;
-          onSave({ ...history, date, medium, summary: summary.trim() });
+          onSave(
+            { ...history, date, medium, summary: summary.trim() },
+            followUpEnabled ? followUpText.trim() || inferFollowUpText(summary) : null
+          );
         }}
         onClick={(event) => event.stopPropagation()}
-        className="mb-[max(0.75rem,env(safe-area-inset-bottom))] w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
+        className="saram-sheet p-4"
       >
         <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">기록 수정</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">
@@ -95,6 +115,28 @@ function HistoryEditor({ history, onClose, onSave }: { history: InteractionHisto
           </select>
         </div>
         <textarea value={summary} onChange={(event) => setSummary(event.target.value)} className="saram-input mt-3 min-h-36 resize-none text-[15px] leading-[1.65]" />
+        <section className="mt-3 rounded-2xl border border-[#ead8c9] bg-white/70 p-3.5">
+          <label className="flex items-center gap-2 text-sm font-semibold text-[#2f1b12]">
+            <input
+              type="checkbox"
+              checked={followUpEnabled}
+              onChange={(event) => {
+                setFollowUpEnabled(event.target.checked);
+                if (event.target.checked && !followUpText.trim()) setFollowUpText(inferFollowUpText(summary));
+              }}
+              className="h-5 w-5 accent-[#d85b36]"
+            />
+            다음에 챙기기
+          </label>
+          {followUpEnabled && (
+            <input
+              value={followUpText}
+              onChange={(event) => setFollowUpText(event.target.value)}
+              placeholder="예) 승진 심사 결과"
+              className="saram-input mt-3 py-3 text-sm"
+            />
+          )}
+        </section>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <button type="button" onClick={onClose} className="rounded-full border border-[#ead8c9] bg-white py-3 font-medium text-[#5a392a]">취소</button>
           <button className="rounded-full bg-[#d85b36] py-3 font-semibold text-white">저장</button>

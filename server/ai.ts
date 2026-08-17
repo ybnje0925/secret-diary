@@ -1,9 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import type { CheckInRecommendationTopic } from "../src/utils/checkInRecommendations.js";
-import { buildCheckInCandidates, buildCheckInTopics, buildLocalStarters } from "../src/utils/checkInRecommendations.js";
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const PLACEHOLDER_KEYS = new Set(["MY_GEMINI_API_KEY", "YOUR_GEMINI_API_KEY", "your-gemini-api-key"]);
+const MAX_ANALYSIS_INPUT = 6000;
+const MAX_BRIEFING_RECORDS = 5;
 
 export type AiReason =
   | "GEMINI_API_KEY_MISSING"
@@ -17,7 +17,8 @@ export type AiReason =
   | "MODEL_NOT_FOUND"
   | "INVALID_API_KEY"
   | "PERMISSION_DENIED"
-  | "NO_CANDIDATES";
+  | "NO_CANDIDATES"
+  | "AI_ROLE_DISABLED";
 
 export type GeminiErrorDiagnostics = {
   httpStatus?: number;
@@ -121,10 +122,7 @@ function classifyAiError(error: any): AiReason {
   if (status === 401) return "INVALID_API_KEY";
   if (googleStatus === "PERMISSION_DENIED" || status === 403 || /permission denied|forbidden|unauthorized/i.test(message)) return "PERMISSION_DENIED";
   if (googleStatus === "NOT_FOUND" || status === 404 || /model .*not found|not found|not supported/i.test(message)) return "MODEL_NOT_FOUND";
-  if (googleStatus === "RESOURCE_EXHAUSTED" || status === 429) {
-    if (/quota|exceeded/i.test(message)) return "QUOTA_EXCEEDED";
-    return "RATE_LIMIT";
-  }
+  if (googleStatus === "RESOURCE_EXHAUSTED" || status === 429) return /quota|exceeded/i.test(message) ? "QUOTA_EXCEEDED" : "RATE_LIMIT";
   if (/empty response/i.test(message)) return "GEMINI_EMPTY_RESPONSE";
   if (/JSON|parse|schema|invalid response/i.test(message)) return "INVALID_RESPONSE";
   return "GEMINI_REQUEST_FAILED";
@@ -176,8 +174,9 @@ export async function getAiHealthResult() {
       reason: keyStatus.reason,
       endpoints: {
         summarize: "fallback",
-        checkInSuggestions: "fallback",
-        checkInStarters: "fallback"
+        personBriefing: "fallback",
+        checkInSuggestions: "disabled",
+        checkInStarters: "disabled"
       },
       meta
     };
@@ -188,8 +187,7 @@ export async function getAiHealthResult() {
       model: GEMINI_MODEL,
       contents: [{ text: "Return exactly the plain text OK. Do not add anything else." }]
     });
-    const healthText = String(response.text || "").trim();
-    if (!healthText) {
+    if (!String(response.text || "").trim()) {
       const error = new Error("Gemini health returned empty response");
       (error as any).aiReason = "GEMINI_EMPTY_RESPONSE";
       throw error;
@@ -203,8 +201,9 @@ export async function getAiHealthResult() {
       model: GEMINI_MODEL,
       endpoints: {
         summarize: "ok",
-        checkInSuggestions: "ok",
-        checkInStarters: "ok"
+        personBriefing: "ok",
+        checkInSuggestions: "disabled",
+        checkInStarters: "disabled"
       },
       meta
     };
@@ -229,8 +228,9 @@ export async function getAiHealthResult() {
       diagnostics,
       endpoints: {
         summarize: "fallback",
-        checkInSuggestions: "fallback",
-        checkInStarters: "fallback"
+        personBriefing: "fallback",
+        checkInSuggestions: "disabled",
+        checkInStarters: "disabled"
       },
       meta
     };
@@ -238,9 +238,12 @@ export async function getAiHealthResult() {
 }
 
 export async function summarizeText(body: any) {
-  const { scriptText, selectedPersonName } = body || {};
+  const { scriptText, selectedPersonId, selectedPersonName } = body || {};
   const todayStr = new Date().toISOString().split("T")[0];
-  if (!scriptText || !String(scriptText).trim()) {
+  const cleanText = limitAiInput(redactDirectIdentifiers(String(scriptText || "")), MAX_ANALYSIS_INPUT);
+  const inputHash = simpleHash(`${selectedPersonId || selectedPersonName || "unknown"}:${cleanText}`);
+
+  if (!cleanText.trim()) {
     return { status: 400, body: { success: false, error: "분석할 텍스트가 필요합니다." } };
   }
 
@@ -248,20 +251,21 @@ export async function summarizeText(body: any) {
     const reason = getGeminiKeyStatus().reason || "GEMINI_API_KEY_MISSING";
     const meta = localMeta(reason);
     logAi("summarize", meta, true);
-    return { body: { success: true, data: simulateAnalysis(scriptText, selectedPersonName, todayStr), simulated: true, meta } };
+    return { body: { success: true, data: simulateAnalysis(cleanText, selectedPersonId || selectedPersonName, todayStr, inputHash, meta), simulated: true, meta } };
   }
 
   try {
     const parsedData = await generateGeminiJson({
-      contents: [{ text: buildSummarizePrompt(scriptText, selectedPersonName, todayStr) }],
+      contents: [{ text: buildSummarizePrompt(cleanText, selectedPersonId, todayStr) }],
       config: {
         responseMimeType: "application/json",
-        responseSchema: summarizeResponseSchema,
+        responseSchema: summarizeResponseSchema
       }
     });
     const meta = geminiMeta();
+    const data = normalizeRecordAnalysis(parsedData, selectedPersonId || selectedPersonName, todayStr, inputHash, meta);
     logAi("summarize", meta, true);
-    return { body: { success: true, data: parsedData, meta } };
+    return { body: { success: true, data, meta } };
   } catch (error) {
     const reason = errorReason(error);
     const meta = localMeta(reason);
@@ -269,7 +273,7 @@ export async function summarizeText(body: any) {
     return {
       body: {
         success: true,
-        data: simulateAnalysis(String(scriptText || ""), selectedPersonName, todayStr),
+        data: simulateAnalysis(cleanText, selectedPersonId || selectedPersonName, todayStr, inputHash, meta),
         fallback: true,
         error: "AI 연결이 불안정해 저장된 규칙으로 정리했어요.",
         meta
@@ -278,104 +282,136 @@ export async function summarizeText(body: any) {
   }
 }
 
-export async function checkInSuggestions(body: any) {
-  const { person } = body || {};
-  if (!person?.name) {
-    return { status: 400, body: { success: false, error: "선택한 사람 정보가 필요합니다." } };
-  }
+export async function personBriefing(body: any) {
+  const personId = String(body?.personId || "");
+  const records = Array.isArray(body?.records) ? body.records.slice(0, MAX_BRIEFING_RECORDS) : [];
+  const cleanRecords = records
+    .map((record: any) => ({
+      date: String(record?.date || "").slice(0, 10),
+      medium: String(record?.medium || "기타").slice(0, 10),
+      summary: limitAiInput(redactDirectIdentifiers(String(record?.summary || "")), 700)
+    }))
+    .filter((record: any) => record.summary);
+  const sourceHash = simpleHash(`${personId}:${JSON.stringify(cleanRecords)}`);
 
-  const candidates = buildCheckInCandidates(person).slice(0, 8);
-  const localTopics = buildCheckInTopics(person);
-  if (candidates.length === 0 || localTopics.length === 0) {
-    const meta: AiMeta = { provider: "local", fallback: false, reason: "NO_CANDIDATES" };
-    logAi("check-in", meta, true);
-    return { body: { success: true, data: { topics: [] }, meta } };
+  if (!personId || cleanRecords.length === 0) {
+    return { status: 400, body: { success: false, error: "브리핑할 최근 기록이 필요합니다." } };
   }
 
   if (shouldUseLocalFallback()) {
     const reason = getGeminiKeyStatus().reason || "GEMINI_API_KEY_MISSING";
     const meta = localMeta(reason);
-    logAi("check-in", meta, true);
-    return { body: { success: true, data: { topics: localTopics }, candidates, simulated: true, meta } };
+    logAi("briefing", meta, true);
+    return { body: { success: true, data: simulateBriefing(cleanRecords, sourceHash, meta), simulated: true, meta } };
   }
 
   try {
-    const parsed = await generateGeminiJson({
-      contents: [{ text: buildCheckInPrompt(person, candidates) }],
-      config: { responseMimeType: "application/json", responseSchema: checkInResponseSchema }
+    const parsedData = await generateGeminiJson({
+      contents: [{ text: buildBriefingPrompt(personId, cleanRecords) }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: briefingResponseSchema
+      }
     });
-    const topics = refineAiTopics(parsed.topics || [], localTopics);
     const meta = geminiMeta();
-    logAi("check-in", meta, true);
-    return { body: { success: true, data: { topics: topics.length ? topics : localTopics }, candidates, meta } };
+    const data = normalizeBriefing(parsedData, sourceHash, meta);
+    logAi("briefing", meta, true);
+    return { body: { success: true, data, meta } };
   } catch (error) {
     const reason = errorReason(error);
     const meta = localMeta(reason);
-    logAi("check-in", meta, false);
+    logAi("briefing", meta, false);
     return {
       body: {
         success: true,
-        data: { topics: buildCheckInTopics(person) },
+        data: simulateBriefing(cleanRecords, sourceHash, meta),
         fallback: true,
-        error: "AI 연결이 잠시 불안정해요. 저장된 기록으로 계속 사용할 수 있어요.",
+        error: "AI 연결이 불안정해 저장된 기록만으로 브리핑했어요.",
         meta
       }
     };
   }
 }
 
-export async function checkInStarters(body: any) {
-  const { person, topic, tone } = body || {};
-  if (!person?.name || !topic?.topic) {
-    return { status: 400, body: { success: false, error: "사람과 주제 정보가 필요합니다." } };
-  }
-
-  if (shouldUseLocalFallback()) {
-    const reason = getGeminiKeyStatus().reason || "GEMINI_API_KEY_MISSING";
-    const meta = localMeta(reason);
-    logAi("starter", meta, true);
-    return { body: { success: true, data: buildLocalStarters(person, topic, tone), simulated: true, meta } };
-  }
-
-  try {
-    const parsed = await generateGeminiJson({
-      contents: [{ text: buildStarterPrompt(person, topic, tone) }],
-      config: { responseMimeType: "application/json", responseSchema: starterResponseSchema }
-    });
-    const meta = geminiMeta();
-    logAi("starter", meta, true);
-    return { body: { success: true, data: parsed, meta } };
-  } catch (error) {
-    const reason = errorReason(error);
-    const meta = localMeta(reason);
-    logAi("starter", meta, false);
-    return {
-      body: {
-        success: true,
-        data: buildLocalStarters(person, topic, tone),
-        fallback: true,
-        error: "AI 연결이 잠시 불안정해요. 저장된 기록으로 계속 사용할 수 있어요.",
-        meta
-      }
-    };
-  }
+export async function checkInSuggestions(_body: any) {
+  const meta = localMeta("AI_ROLE_DISABLED");
+  logAi("check-in-disabled", meta, true);
+  return {
+    status: 410,
+    body: {
+      success: false,
+      disabled: true,
+      data: { topics: [] },
+      error: "AI 안부 추천 기능은 현재 사용하지 않습니다.",
+      meta
+    }
+  };
 }
 
-function buildSummarizePrompt(scriptText: string, selectedPersonName: string | undefined, todayStr: string) {
+export async function checkInStarters(_body: any) {
+  const meta = localMeta("AI_ROLE_DISABLED");
+  logAi("starter-disabled", meta, true);
+  return {
+    status: 410,
+    body: {
+      success: false,
+      disabled: true,
+      error: "AI 추천문구 생성 기능은 현재 사용하지 않습니다.",
+      meta
+    }
+  };
+}
+
+function buildSummarizePrompt(scriptText: string, selectedPersonId: string | undefined, todayStr: string) {
   return `
-    당신은 친근하고 세심한 개인 비서 '용쨔'입니다.
-    사용자가 지인과 나눈 대화의 텍스트를 입력했습니다. 이 텍스트를 분석하여 지인에 관한 핵심 요약 및 개인 정보를 정교하게 추출해 주세요.
+You are the memory organizer inside Saramdam, a private relationship-memory app.
+Your role is NOT to write messages on behalf of the user.
+Your role is to structure facts the user already recorded, classify useful memory, and produce a short briefing.
 
-    지침:
-    1. 선택된 인물명 '${selectedPersonName || ""}'이 있으면 해당 인물 정보를 기준으로 분석합니다.
-    2. 핵심 줄거리 및 약속, 나눈 이야기를 3줄의 간결한 한글 요약으로 만들어 주세요.
-    3. 대화 일자는 특별히 언급되지 않는 한 오늘 날짜인 '${todayStr}'로 기록하고, 연락 수단을 문맥에서 파악해 주세요.
-    4. 새롭게 언급된 자녀나 배우자 정보가 있다면 추출해 주세요.
-    5. 취미, 식성, 건강 상태, 회사 업무 상태, 약속 메모 등이 있다면 newMemoInsights에 짧게 추가해 주세요.
+Privacy and cost rules:
+- Use only the provided text.
+- Do not ask questions, write KakaoTalk messages, or generate contact wording.
+- Do not infer phone numbers, addresses, emails, or other direct identifiers.
+- The selected person is represented as an internal id: ${selectedPersonId || "unknown"}.
+- Keep every output concise.
 
-    분석할 대화 텍스트: "${scriptText}"
-  `;
+Return Korean JSON:
+- summary: 2 to 4 short lines about what happened or changed.
+- briefing: 2 to 4 short lines summarizing recent changes/memory.
+- tags: up to 8 structured memory facts with category in work, family, interest, health, hobby, schedule, recent, preference, promise.
+- lastContactDate defaults to ${todayStr} unless the text clearly says another date.
+- lastContactMedium is one of 통화, 카톡, 식사, 대면, 메시지, 기타.
+
+Recorded text:
+${scriptText}
+`;
 }
+
+function buildBriefingPrompt(personId: string, records: any[]) {
+  return `
+You are the memory briefer inside Saramdam.
+Summarize what recently changed for this person. Do not write a message to send.
+
+Rules:
+- Use only the recent records below.
+- Person is identified only as ${personId}; do not need a real name.
+- Output 2 to 4 concise Korean lines.
+- Classify up to 8 memory facts into work, family, interest, health, hobby, schedule, recent, preference, promise.
+- Do not include phone, address, email, or direct identifiers.
+
+Recent records JSON:
+${JSON.stringify(records)}
+`;
+}
+
+const tagSchema = {
+  type: Type.OBJECT,
+  properties: {
+    category: { type: Type.STRING, enum: ["work", "family", "interest", "health", "hobby", "schedule", "recent", "preference", "promise"] },
+    text: { type: Type.STRING }
+  },
+  required: ["category", "text"]
+};
 
 const summarizeResponseSchema = {
   type: Type.OBJECT,
@@ -384,6 +420,8 @@ const summarizeResponseSchema = {
     lastContactDate: { type: Type.STRING },
     lastContactMedium: { type: Type.STRING },
     summary: { type: Type.STRING },
+    briefing: { type: Type.STRING },
+    tags: { type: Type.ARRAY, items: tagSchema },
     newFamilyDetails: {
       type: Type.ARRAY,
       items: {
@@ -398,166 +436,162 @@ const summarizeResponseSchema = {
     },
     newMemoInsights: { type: Type.ARRAY, items: { type: Type.STRING } }
   },
-  required: ["detectedPersonName", "lastContactDate", "lastContactMedium", "summary"]
+  required: ["lastContactDate", "lastContactMedium", "summary"]
 };
 
-function buildCheckInPrompt(person: any, candidates: any[]) {
-  return `
-You are helping with Saramdam, a relationship memory app.
-The app already selected evidence-backed memory candidates.
-Your job is only to turn selected candidates into natural Korean check-in topics and short questions.
-Do not act as a fact finder. The app has already ranked what is worth recommending.
-
-Rules:
-- Use ONLY the provided candidates.
-- Prefer higher finalScore candidates, but return fewer topics when evidence is weak.
-- Do not invent names, family relations, ages, jobs, health status, or current situations.
-- If current status is unknown, clearly frame it as a past record.
-- Show a source for every topic.
-- Handle sensitive topics gently and do not ask for a specific outcome.
-- Return at least 1 and at most 4 topics only when the evidence is enough.
-- Keep the candidateId from the selected candidate. Do not use candidates not listed.
-- Korean messages should sound like a real short KakaoTalk check-in.
-
-Person context:
-${JSON.stringify({ name: person.name, category: person.category, groups: person.groups, company: person.company, lastContactDate: person.lastContactDate })}
-
-Evidence-backed candidates JSON:
-${JSON.stringify(candidates.map(({ id, text, sourceType, sourceDate, source, category, sensitivity, recencyScore, followUpScore, repetitionScore, finalScore }) => ({
-    id,
-    text,
-    sourceType,
-    sourceDate,
-    source,
-    category,
-    sensitivity,
-    recencyScore,
-    followUpScore,
-    repetitionScore,
-    finalScore
-  })))}
-  `;
-}
-
-const checkInResponseSchema = {
+const briefingResponseSchema = {
   type: Type.OBJECT,
   properties: {
-    topics: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          id: { type: Type.STRING },
-          candidateId: { type: Type.STRING },
-          icon: { type: Type.STRING },
-          topic: { type: Type.STRING },
-          reason: { type: Type.STRING },
-          source: { type: Type.STRING },
-          sensitivity: { type: Type.STRING, enum: ["normal", "sensitive"] },
-          suggestedQuestion: { type: Type.STRING }
-        },
-        required: ["candidateId", "topic", "reason", "source", "sensitivity", "suggestedQuestion"]
-      }
-    }
+    briefing: { type: Type.STRING },
+    tags: { type: Type.ARRAY, items: tagSchema }
   },
-  required: ["topics"]
+  required: ["briefing"]
 };
 
-function buildStarterPrompt(person: any, topic: any, tone: string) {
-  return `
-Create 3 Korean conversation starter messages for Saramdam.
-Use ONLY the selected topic and source. Do not add new facts.
-
-Person context:
-${JSON.stringify({ name: person.name, category: person.category, groups: person.groups, company: person.company })}
-
-Selected topic:
-${JSON.stringify(topic)}
-
-Tone adjustment requested: ${tone || "casual"}
-
-Rules:
-- natural: warm and natural.
-- friendly: a bit more casual if relationship allows, but do not force banmal only from category.
-- polite: concise and respectful.
-- If topic is sensitive, be gentle and do not assume outcomes.
-- Do not mention facts not present in topic/source/person data.
-- Keep each message short enough for KakaoTalk.
-- Avoid counselor-like wording, long greetings, and technical app language.
-  `;
+function normalizeRecordAnalysis(raw: any, selectedPerson: string | undefined, todayStr: string, inputHash: string, meta: AiMeta) {
+  const summary = limitLines(String(raw?.summary || "기록한 내용을 정리했습니다."), 4);
+  return {
+    detectedPersonName: String(raw?.detectedPersonName || selectedPerson || ""),
+    lastContactDate: String(raw?.lastContactDate || todayStr).slice(0, 10),
+    lastContactMedium: normalizeMedium(raw?.lastContactMedium),
+    summary,
+    briefing: limitLines(String(raw?.briefing || summary), 4),
+    tags: normalizeTags(raw?.tags),
+    newFamilyDetails: Array.isArray(raw?.newFamilyDetails) ? raw.newFamilyDetails.slice(0, 4) : [],
+    newMemoInsights: Array.isArray(raw?.newMemoInsights) ? raw.newMemoInsights.map((item: any) => String(item).slice(0, 120)).slice(0, 8) : [],
+    analysisHash: inputHash,
+    analyzedAt: new Date().toISOString(),
+    provider: meta.provider,
+    model: meta.model,
+    fallback: meta.fallback
+  };
 }
 
-const starterResponseSchema = {
-  type: Type.OBJECT,
-  properties: {
-    natural: { type: Type.STRING },
-    friendly: { type: Type.STRING },
-    polite: { type: Type.STRING }
-  },
-  required: ["natural", "friendly", "polite"]
-};
+function normalizeBriefing(raw: any, sourceHash: string, meta: AiMeta) {
+  return {
+    sourceHash,
+    briefing: limitLines(String(raw?.briefing || "최근 기록을 정리했습니다."), 4),
+    tags: normalizeTags(raw?.tags),
+    updatedAt: new Date().toISOString(),
+    provider: meta.provider,
+    model: meta.model,
+    fallback: meta.fallback
+  };
+}
 
-function refineAiTopics(rawTopics: any[], localTopics: CheckInRecommendationTopic[]) {
-  const byCandidateId = new Map(localTopics.map((topic) => [topic.candidateId, topic]));
+function normalizeTags(raw: any) {
+  const allowed = new Set(["work", "family", "interest", "health", "hobby", "schedule", "recent", "preference", "promise"]);
+  if (!Array.isArray(raw)) return [];
   const seen = new Set<string>();
-
-  return rawTopics
-    .map((topic) => {
-      const base = byCandidateId.get(String(topic?.candidateId || ""));
-      if (!base) return null;
-      return {
-        ...base,
-        id: String(topic.id || base.id),
-        icon: String(topic.icon || base.icon),
-        topic: String(topic.topic || base.topic).slice(0, 40),
-        reason: String(topic.reason || base.reason).slice(0, 120),
-        source: base.source,
-        sensitivity: base.sensitivity,
-        suggestedQuestion: String(topic.suggestedQuestion || base.suggestedQuestion).slice(0, 140)
-      };
-    })
-    .filter(Boolean)
-    .filter((topic) => {
-      const key = String(topic?.candidateId || topic?.id);
-      if (seen.has(key)) return false;
+  return raw
+    .map((tag: any) => ({
+      category: allowed.has(String(tag?.category)) ? String(tag.category) : "recent",
+      text: String(tag?.text || "").trim().slice(0, 120)
+    }))
+    .filter((tag) => {
+      const key = `${tag.category}:${tag.text}`;
+      if (!tag.text || seen.has(key)) return false;
       seen.add(key);
       return true;
     })
-    .slice(0, 4);
+    .slice(0, 8);
 }
 
-function simulateAnalysis(scriptText: string, selectedName: string | undefined, todayStr: string) {
-  const name = selectedName || "김민수";
-  const textLower = scriptText.toLowerCase();
+function normalizeMedium(value: unknown) {
+  return value === "통화" || value === "카톡" || value === "식사" || value === "대면" || value === "메시지" || value === "기타" ? value : "기타";
+}
 
-  if (textLower.includes("테니스") || textLower.includes("라켓") || textLower.includes("레슨")) {
-    return {
-      detectedPersonName: name,
-      lastContactDate: todayStr,
-      lastContactMedium: "식사",
-      summary: "오늘 만남에서 테니스 동호회 이야기를 주로 나누었습니다.\n최근 서브 리턴 연습을 시작하여 손목에 약간 무리가 왔다고 합니다.\n다음 달 동호회 정기 월례 대회에 함께 복식 파트너로 참가하기로 조율했습니다.",
-      newFamilyDetails: [{ name: "민지", ageOrBirth: "9살", memo: "최근 어린이 테니스 교실을 시작해서 아주 신나함" }],
-      newMemoInsights: ["테니스 구력 3년차, 주 2회 실내 연습장 다님", "라켓은 요넥스 제품 사용 중"]
-    };
-  }
-
-  if (textLower.includes("육아") || textLower.includes("어린이집") || textLower.includes("유치원") || textLower.includes("아들") || textLower.includes("딸")) {
-    return {
-      detectedPersonName: name,
-      lastContactDate: todayStr,
-      lastContactMedium: "통화",
-      summary: "자녀 육아와 새 환경 적응에 관한 이야기를 나누었습니다.\n가족 일정과 준비할 일을 함께 확인했습니다.\n다음 만남에서 부담 없이 후속 안부를 물어볼 수 있습니다.",
-      newFamilyDetails: [{ name: "예나", ageOrBirth: "6살", memo: "새 환경 적응 이야기가 있었음" }],
-      newMemoInsights: ["주말 가족 일정과 아이 적응에 관심이 있음"]
-    };
-  }
-
+function simulateAnalysis(scriptText: string, selectedName: string | undefined, todayStr: string, inputHash: string, meta: AiMeta) {
+  const lower = scriptText.toLowerCase();
+  const tags = extractLocalTags(scriptText);
+  const family = /둘째|아들|딸|아이|자녀|출산|육아/.test(scriptText)
+    ? [{ name: /둘째/.test(scriptText) ? "둘째" : "자녀", ageOrBirth: /9월/.test(scriptText) ? "9월 예정" : "", memo: "가족 관련 새 정보가 있음" }]
+    : [];
+  const medium = lower.includes("카톡") ? "카톡" : lower.includes("점심") || lower.includes("식사") ? "식사" : "기타";
+  const summary = limitLines(buildLocalSummary(scriptText), 4);
   return {
-    detectedPersonName: name,
+    detectedPersonName: selectedName || "",
     lastContactDate: todayStr,
-    lastContactMedium: "통화",
-    summary: "지인과 일상 근황을 나누었습니다.\n최근 근황과 관심사에 관한 대화였습니다.\n다음 만남 일정을 긍정적으로 기약했습니다.",
-    newFamilyDetails: [],
-    newMemoInsights: ["최근 근황과 관심사를 가볍게 확인함"]
+    lastContactMedium: medium,
+    summary,
+    briefing: summary,
+    tags,
+    newFamilyDetails: family,
+    newMemoInsights: tags.map((tag) => tag.text).slice(0, 6),
+    analysisHash: inputHash,
+    analyzedAt: new Date().toISOString(),
+    provider: meta.provider,
+    model: meta.model,
+    fallback: meta.fallback
   };
+}
+
+function simulateBriefing(records: any[], sourceHash: string, meta: AiMeta) {
+  const text = records.map((record) => record.summary).join("\n");
+  return {
+    sourceHash,
+    briefing: limitLines(buildLocalSummary(text), 4),
+    tags: extractLocalTags(text),
+    updatedAt: new Date().toISOString(),
+    provider: meta.provider,
+    model: meta.model,
+    fallback: meta.fallback
+  };
+}
+
+function extractLocalTags(text: string) {
+  const tags: Array<{ category: string; text: string }> = [];
+  const push = (category: string, value: string) => tags.push({ category, text: value });
+  if (/골프|테니스|러닝|운동|캠핑|낚시/.test(text)) push(/골프|테니스|러닝|운동/.test(text) ? "hobby" : "interest", pickSentence(text, /골프|테니스|러닝|운동|캠핑|낚시/));
+  if (/회사|부서|승진|이직|프로젝트|업무|팀장/.test(text)) push("work", pickSentence(text, /회사|부서|승진|이직|프로젝트|업무|팀장/));
+  if (/아들|딸|자녀|둘째|출산|육아|배우자|가족/.test(text)) push("family", pickSentence(text, /아들|딸|자녀|둘째|출산|육아|배우자|가족/));
+  if (/병원|수술|건강|아프|검사|통증/.test(text)) push("health", pickSentence(text, /병원|수술|건강|아프|검사|통증/));
+  if (/[0-9]{1,2}월|다음 달|다음주|예정|기념일|생일/.test(text)) push("schedule", pickSentence(text, /[0-9]{1,2}월|다음 달|다음주|예정|기념일|생일/));
+  if (/좋아|선호|맛집|커피|음식/.test(text)) push("preference", pickSentence(text, /좋아|선호|맛집|커피|음식/));
+  if (/하기로|약속|만나기로/.test(text)) push("promise", pickSentence(text, /하기로|약속|만나기로/));
+  if (!tags.length) push("recent", limitAiInput(text, 80));
+  return normalizeTags(tags);
+}
+
+function buildLocalSummary(text: string) {
+  const sentences = text
+    .split(/[\n.。!?]+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+  return sentences.length ? sentences.join("\n") : "최근 기록을 정리했습니다.";
+}
+
+function pickSentence(text: string, pattern: RegExp) {
+  const sentence = text.split(/[\n.。!?]+/).find((line) => pattern.test(line)) || text;
+  return sentence.trim().slice(0, 120);
+}
+
+function limitAiInput(value: string, maxLength: number) {
+  return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function limitLines(value: string, maxLines: number) {
+  return value
+    .split(/\n+/)
+    .map((line) => line.replace(/^\d+\.\s*/, "").trim())
+    .filter(Boolean)
+    .slice(0, maxLines)
+    .join("\n")
+    .slice(0, 500);
+}
+
+function redactDirectIdentifiers(value: string) {
+  return value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/(?:\+?82[-.\s]?)?0?1[016789][-\s.]?\d{3,4}[-\s.]?\d{4}/g, "[phone]")
+    .replace(/\d{2,4}[-\s]?\d{3,4}[-\s]?\d{4}/g, "[phone]");
+}
+
+function simpleHash(value: string) {
+  let hash = 5381;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(index);
+  }
+  return `ai_${(hash >>> 0).toString(36)}`;
 }

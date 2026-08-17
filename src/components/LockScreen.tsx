@@ -106,7 +106,7 @@ export default function LockScreen({ initialMode, onUnlocked }: LockScreenProps)
   };
 
   if (mode === "checking") {
-    return <div className="min-h-screen bg-[#fff8ef]" />;
+    return <div className="min-h-[100dvh] bg-[#fff8ef]" />;
   }
 
   const isSetup = mode === "setup";

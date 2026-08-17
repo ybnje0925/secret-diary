@@ -1,40 +1,45 @@
-import { ArrowLeft, Bell, Search, Sparkles } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, CheckCircle2, Clock3, Search, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "../components/common/Avatar";
-import ConversationStarter, { StarterSet } from "../components/checkin/ConversationStarter";
-import ConversationTopicCard, { ConversationTopic } from "../components/checkin/ConversationTopicCard";
-import { InteractionHistory, Person } from "../types";
-import { buildCheckInTopics, buildLocalStarters as buildCandidateStarters } from "../utils/checkInRecommendations";
-import { daysSince, formatDateKo, getRecentMemory, getRelationLine, normalizeMemoryText } from "../utils/saramdam";
+import { FollowUpItem, InteractionHistory, Person } from "../types";
+import { getPendingFollowUps } from "../utils/followUps";
+import { daysSince, formatDateKo, getRecentMemory, getRelationLine } from "../utils/saramdam";
 
 interface Props {
   people: Person[];
   aiEnabled?: boolean;
   initialPersonId?: string | null;
   onContactComplete: (personId: string, history: InteractionHistory) => void;
+  onCompleteFollowUp: (personId: string, followUpId: string) => void;
+  onDeleteFollowUp: (personId: string, followUpId: string) => void;
+  onStartFollowUpStory: (personId: string, followUpId: string, referenceText: string) => void;
 }
 
-type Step = "main" | "picker" | "topics" | "starter";
+type Step = "main" | "picker" | "person";
+type UpcomingEvent = { id: string; label: string; date: string; daysUntil: number };
+type CarePerson = { person: Person; pending: FollowUpItem[]; upcoming: UpcomingEvent[]; staleDays: number; score: number };
 
-const sensitivePattern = /수술|질병|아프|통증|병원|퇴사|이직|갈등|사망|장례|금전|빚|걱정|힘들|스트레스|가족 일/;
+const staleThresholdDays = 90;
+const upcomingWindowDays = 30;
 
-export default function CheckInView({ people, aiEnabled = true, initialPersonId, onContactComplete }: Props) {
-  const [step, setStep] = useState<Step>(initialPersonId ? "topics" : "main");
+export default function CheckInView({
+  people,
+  initialPersonId,
+  onCompleteFollowUp,
+  onDeleteFollowUp,
+  onStartFollowUpStory
+}: Props) {
+  const [step, setStep] = useState<Step>(initialPersonId ? "person" : "main");
   const [selectedId, setSelectedId] = useState<string | null>(initialPersonId || null);
-  const [selectedTopic, setSelectedTopic] = useState<ConversationTopic | null>(null);
-  const [topics, setTopics] = useState<ConversationTopic[]>([]);
-  const [isLoadingTopics, setIsLoadingTopics] = useState(false);
-  const [topicError, setTopicError] = useState<string | null>(null);
-  const [starters, setStarters] = useState<StarterSet | null>(null);
-  const [isLoadingStarters, setIsLoadingStarters] = useState(false);
-  const [starterError, setStarterError] = useState<string | null>(null);
+  const [completedPrompt, setCompletedPrompt] = useState<{ person: Person; item: FollowUpItem } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const stepRef = useRef(step);
-  const startedFromInitialPersonRef = useRef(Boolean(initialPersonId));
-  const topicsBackTargetRef = useRef<"main" | "picker">("main");
 
-  const recommended = useMemo(() => sortCheckInPeople(people), [people]);
-  const selected = people.find((person) => person.id === selectedId) || null;
+  const carePeople = useMemo(() => people.map(buildCarePerson).filter(shouldShowCarePerson).sort(sortCarePeople), [people]);
+  const selectedCare = useMemo(() => {
+    const selected = people.find((person) => person.id === selectedId);
+    return selected ? buildCarePerson(selected) : null;
+  }, [people, selectedId]);
   const searchedPeople = people.filter((person) => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
@@ -43,9 +48,8 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
 
   useEffect(() => {
     if (initialPersonId) {
-      startedFromInitialPersonRef.current = true;
       setSelectedId(initialPersonId);
-      setStep("topics");
+      setStep("person");
     }
   }, [initialPersonId]);
 
@@ -55,108 +59,27 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
 
   useEffect(() => {
     const onRootBack = (event: Event) => {
-      const currentStep = stepRef.current;
-      if (currentStep === "main") return;
+      if (stepRef.current === "main") return;
       event.preventDefault();
-
-      if (currentStep === "starter") {
-        setStep("topics");
-        return;
-      }
-      if (currentStep === "topics") {
-        setSelectedTopic(null);
-        setStep(startedFromInitialPersonRef.current ? "main" : topicsBackTargetRef.current);
-        startedFromInitialPersonRef.current = false;
-        return;
-      }
-      if (currentStep === "picker") {
-        setStep("main");
-      }
+      setStep("main");
     };
 
     window.addEventListener("saramdam:root-back", onRootBack);
     return () => window.removeEventListener("saramdam:root-back", onRootBack);
   }, []);
 
-  useEffect(() => {
-    if (step === "topics" && selected) {
-      loadTopics(selected);
-    }
-  }, [step, selectedId]);
-
-  useEffect(() => {
-    if (step === "starter" && selected && selectedTopic) {
-      loadStarters(selected, selectedTopic, "casual");
-    }
-  }, [step, selectedTopic?.id]);
-
-  const choosePerson = (personId: string, backTarget: "main" | "picker" = "main") => {
-    startedFromInitialPersonRef.current = false;
-    topicsBackTargetRef.current = backTarget;
+  const choosePerson = (personId: string) => {
     setSelectedId(personId);
-    setSelectedTopic(null);
-    setStep("topics");
+    setStep("person");
   };
 
-  const backFromTopics = () => {
-    setSelectedTopic(null);
-    setStep(startedFromInitialPersonRef.current ? "main" : topicsBackTargetRef.current);
-    startedFromInitialPersonRef.current = false;
-  };
-
-  const loadTopics = async (person: Person) => {
-    setIsLoadingTopics(true);
-    setTopicError(null);
-    if (!aiEnabled) {
-      setTopics(makeLocalTopics(person));
-      setIsLoadingTopics(false);
-      return;
-    }
-    try {
-      const response = await fetch("/api/check-in-suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ person: buildPersonPayload(person) })
-      });
-      const data = await readAiJson(response);
-      if (!response.ok || !data.success) throw new Error(data.error || "안부 주제를 불러오지 못했어요.");
-      const aiTopics = normalizeTopics(data.data?.topics || [], person);
-      setTopics(aiTopics.length ? aiTopics : makeLocalTopics(person));
-    } catch (error: any) {
-      setTopics(makeLocalTopics(person));
-      setTopicError("AI 추천 대신 저장된 기록으로 이야기를 준비했어요.");
-    } finally {
-      setIsLoadingTopics(false);
-    }
-  };
-
-  const loadStarters = async (person: Person, topic: ConversationTopic, tone: "casual" | "polite" | "short") => {
-    setIsLoadingStarters(true);
-    setStarterError(null);
-    if (!aiEnabled) {
-      setStarters(makeLocalStarters(person, topic, tone));
-      setIsLoadingStarters(false);
-      return;
-    }
-    try {
-      const response = await fetch("/api/check-in-starters", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ person: buildPersonPayload(person), topic, tone })
-      });
-      const data = await readAiJson(response);
-      if (!response.ok || !data.success) throw new Error(data.error || "문구를 불러오지 못했어요.");
-      setStarters(normalizeStarters(data.data, person, topic, tone));
-    } catch (error: any) {
-      setStarters(makeLocalStarters(person, topic, tone));
-      setStarterError("AI 추천 대신 저장된 기록으로 문구를 준비했어요.");
-    } finally {
-      setIsLoadingStarters(false);
-    }
+  const completeFollowUp = (person: Person, item: FollowUpItem) => {
+    onCompleteFollowUp(person.id, item.id);
+    setCompletedPrompt({ person, item });
   };
 
   if (!people.length) {
-    return <p className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center text-sm text-[#7c6252]">안부를 전할 사람이 아직 없어요.</p>;
+    return <p className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center text-sm text-[#7c6252]">안부를 챙길 사람이 아직 없어요.</p>;
   }
 
   if (step === "picker") {
@@ -164,8 +87,8 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
       <div className="space-y-5">
         <button onClick={() => setStep("main")} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
         <section>
-          <h1 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">누구에게 안부를 전할까요?</h1>
-          <p className="mt-2 text-[13px] leading-[1.6] text-[#7c6252]">연락 주기와 상관없이 원하는 사람을 선택할 수 있어요.</p>
+          <h1 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">누구를 챙겨볼까요?</h1>
+          <p className="mt-2 text-[13px] leading-[1.6] text-[#7c6252]">저장된 이야기와 기록을 살펴볼 사람을 선택할 수 있어요.</p>
         </section>
         <label className="relative block">
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#8f7564]" />
@@ -174,7 +97,7 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
         <div className="space-y-3">
           {searchedPeople.map((person) => (
             <div key={person.id}>
-              <PersonSelectCard person={person} onSelect={(personId) => choosePerson(personId, "picker")} />
+              <PersonSelectCard care={buildCarePerson(person)} onSelect={choosePerson} />
             </div>
           ))}
         </div>
@@ -182,50 +105,16 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
     );
   }
 
-  if (step === "topics" && selected) {
+  if (step === "person" && selectedCare) {
     return (
-      <div className="space-y-5">
-        <button onClick={backFromTopics} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
-        <section>
-          <p className="text-sm font-semibold text-[#d85b36]">{selected.name}에게</p>
-          <h1 className="mt-1 text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">무슨 이야기를 해볼까요?</h1>
-          <p className="mt-1.5 whitespace-pre-line text-[13px] leading-[1.6] text-[#7c6252]">함께 나눴던 이야기에서{"\n"}자연스럽게 꺼낼 만한 주제를 찾아봤어요.</p>
-        </section>
-        {isLoadingTopics && <LoadingCard text={`${selected.name}와 나눴던 이야기를 살펴보고 있어요 🌿`} />}
-        {topicError && <FallbackNotice message={topicError} onRetry={() => loadTopics(selected)} />}
-        {!isLoadingTopics && topics.length === 0 && (
-          <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center shadow-soft">
-            <Sparkles className="mx-auto h-8 w-8 text-[#d85b36]" />
-            <h2 className="mt-3 text-[17px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">아직 추천할 만한 이야기가 많지 않아요.</h2>
-            <p className="mt-2 text-sm leading-[1.6] text-[#7c6252]">최근에 있었던 이야기를 조금 더 담아보세요.</p>
-          </section>
-        )}
-        <div className="space-y-3">
-          {topics.map((topic) => (
-            <div key={topic.id}>
-              <ConversationTopicCard topic={topic} onSelect={(nextTopic) => { setSelectedTopic(nextTopic); setStep("starter"); }} />
-            </div>
-          ))}
-        </div>
-        <ManualTopics person={selected} onSelect={(topic) => { setSelectedTopic(topic); setStep("starter"); }} />
-        <PrivacyNotice />
-      </div>
-    );
-  }
-
-  if (step === "starter" && selected && selectedTopic) {
-    return (
-      <ConversationStarter
-        person={selected}
-        topic={selectedTopic}
-        starters={starters}
-        isLoading={isLoadingStarters}
-        error={starterError}
-        onBack={() => setStep("topics")}
-        onRegenerate={(tone) => loadStarters(selected, selectedTopic, tone)}
-        onContactComplete={(history) => {
-          onContactComplete(selected.id, history);
-          setStep("main");
+      <CarePersonDetail
+        care={selectedCare}
+        onBack={() => setStep("main")}
+        onComplete={completeFollowUp}
+        onDelete={(person, item) => onDeleteFollowUp(person.id, item.id)}
+        onStartStory={(person, item) => {
+          onStartFollowUpStory(person.id, item.id, item.text);
+          setCompletedPrompt(null);
         }}
       />
     );
@@ -236,219 +125,334 @@ export default function CheckInView({ people, aiEnabled = true, initialPersonId,
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">안부를 전해볼까요?</h1>
-          <p className="mt-1.5 whitespace-pre-line text-[13px] leading-[1.6] text-[#7c6252]">가끔은 작은 안부 하나가{"\n"}오래된 관계를 다시 이어주기도 해요.</p>
+          <p className="mt-1.5 whitespace-pre-line text-[13px] leading-[1.6] text-[#7c6252]">챙겨야 할 사람과 이야기를{"\n"}한곳에서 확인해요.</p>
         </div>
-        <button className="relative rounded-full p-2 text-[#2f1b12]"><Bell className="h-6 w-6" /><span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[#d85b36]" /></button>
+        <button className="relative rounded-full p-2 text-[#2f1b12]"><Bell className="h-6 w-6" />{carePeople.length > 0 && <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-[#d85b36]" />}</button>
       </header>
 
+      {completedPrompt && (
+        <FollowUpCompletedPrompt
+          person={completedPrompt.person}
+          item={completedPrompt.item}
+          onWrite={() => {
+            onStartFollowUpStory(completedPrompt.person.id, completedPrompt.item.id, completedPrompt.item.text);
+            setCompletedPrompt(null);
+          }}
+          onDismiss={() => setCompletedPrompt(null)}
+        />
+      )}
+
       <section>
-        <h2 className="mb-2.5 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">오늘 안부를 전해볼 사람</h2>
-        <div className="space-y-3">
-          {recommended.slice(0, 5).map((person) => (
-            <div key={person.id}>
-              <RecommendedPersonCard person={person} onSelect={choosePerson} />
-            </div>
-          ))}
-        </div>
+        <h2 className="mb-2.5 text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">챙길 사람과 이야기</h2>
+        {carePeople.length ? (
+          <div className="space-y-3">
+            {carePeople.slice(0, 8).map((care) => (
+              <div key={care.person.id}>
+                <CarePersonCard care={care} onSelect={choosePerson} onComplete={completeFollowUp} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-4 text-center shadow-soft">
+            <CheckCircle2 className="mx-auto h-8 w-8 text-[#d85b36]" />
+            <h3 className="mt-3 text-[17px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">지금 챙길 이야기는 없어요.</h3>
+            <p className="mt-2 text-sm leading-[1.6] text-[#7c6252]">다음에 챙길 이야기를 기록에서 직접 관리할 수 있습니다.</p>
+          </section>
+        )}
       </section>
 
       <button onClick={() => setStep("picker")} className="w-full rounded-full border border-[#ead8c9] bg-white py-3 text-sm font-medium text-[#5a392a] shadow-soft">
-        다른 사람에게 안부 전하기
+        다른 사람 살펴보기
       </button>
-      <PrivacyNotice />
+      <CareNotice />
     </div>
   );
 }
 
-function RecommendedPersonCard({ person, onSelect }: { person: Person; onSelect: (personId: string) => void }) {
+function CarePersonCard({ care, onSelect, onComplete }: { care: CarePerson; onSelect: (personId: string) => void; onComplete: (person: Person, item: FollowUpItem) => void }) {
+  const firstPending = care.pending[0];
+
   return (
     <article className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
-      <div className="flex gap-4">
-        <Avatar person={person} size="md" />
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[17px] font-semibold leading-[1.4] tracking-[-0.015em] text-[#2f1b12]">{person.name}</h3>
-          <p className="mt-1 text-sm font-medium text-[#5e473a]">{getRelationLine(person)}</p>
-          <p className="mt-2 text-sm font-medium text-[#c95735]">마지막 연락 {daysSince(person.lastContactDate)}일 전</p>
+      <button onClick={() => onSelect(care.person.id)} className="w-full text-left">
+        <div className="flex gap-4">
+          <Avatar person={care.person} size="md" />
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[17px] font-semibold leading-[1.4] tracking-[-0.015em] text-[#2f1b12]">{care.person.name}</h3>
+            <p className="mt-1 text-sm font-medium text-[#5e473a]">{getRelationLine(care.person)}</p>
+            <p className="mt-2 text-sm font-semibold leading-[1.45] text-[#c95735]">{getHeadline(care)}</p>
+          </div>
         </div>
-      </div>
-      <blockquote className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-sm leading-relaxed text-[#5a392a]">“{getRecentMemory(person).split("\n")[0]}”</blockquote>
-      <button onClick={() => onSelect(person.id)} className="mt-4 w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white">이야기로 안부 시작하기</button>
+      </button>
+      <CareBadges care={care} />
+      {firstPending ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button onClick={() => onComplete(care.person, firstPending)} className="rounded-full bg-[#d85b36] py-2 text-xs font-semibold text-white">
+            <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" /> 물어봤어요
+          </button>
+          <button onClick={() => onSelect(care.person.id)} className="rounded-full border border-[#ead8c9] bg-white py-2 text-xs font-medium text-[#5a392a]">
+            모두 보기
+          </button>
+        </div>
+      ) : (
+        <button onClick={() => onSelect(care.person.id)} className="mt-4 w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white">살펴보기</button>
+      )}
     </article>
   );
 }
 
-function PersonSelectCard({ person, onSelect }: { person: Person; onSelect: (personId: string) => void }) {
+function CarePersonDetail({
+  care,
+  onBack,
+  onComplete,
+  onDelete,
+  onStartStory
+}: {
+  care: CarePerson;
+  onBack: () => void;
+  onComplete: (person: Person, item: FollowUpItem) => void;
+  onDelete: (person: Person, item: FollowUpItem) => void;
+  onStartStory: (person: Person, item: FollowUpItem) => void;
+}) {
+  const [localPrompt, setLocalPrompt] = useState<FollowUpItem | null>(null);
+  const latest = getLatestHistory(care.person);
+
+  const complete = (item: FollowUpItem) => {
+    onComplete(care.person, item);
+    setLocalPrompt(item);
+  };
+
   return (
-    <button onClick={() => onSelect(person.id)} className="flex w-full items-center gap-3 rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3 text-left shadow-soft">
-      <Avatar person={person} size="sm" />
+    <div className="space-y-5">
+      <button onClick={onBack} className="rounded-full p-2 text-[#2f1b12]"><ArrowLeft className="h-6 w-6" /></button>
+      <section>
+        <p className="text-sm font-semibold text-[#d85b36]">{care.person.name}에게</p>
+        <h1 className="mt-1 text-[22px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">무엇을 챙길까요?</h1>
+        <p className="mt-1.5 whitespace-pre-line text-[13px] leading-[1.6] text-[#7c6252]">직접 남겨둔 이야기와{"\n"}날짜 정보를 함께 확인해요.</p>
+      </section>
+
+      {localPrompt && (
+        <FollowUpCompletedPrompt
+          person={care.person}
+          item={localPrompt}
+          onWrite={() => {
+            onStartStory(care.person, localPrompt);
+            setLocalPrompt(null);
+          }}
+          onDismiss={() => setLocalPrompt(null)}
+        />
+      )}
+
+      <article className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
+        <div className="flex gap-4">
+          <Avatar person={care.person} size="md" />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[17px] font-semibold leading-[1.4] tracking-[-0.015em] text-[#2f1b12]">{care.person.name}</h2>
+            <p className="mt-1 text-sm font-medium text-[#5e473a]">{getRelationLine(care.person)}</p>
+            <p className="mt-2 text-sm font-semibold text-[#c95735]">{getHeadline(care)}</p>
+          </div>
+        </div>
+        <CareBadges care={care} />
+      </article>
+
+      <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
+        <h2 className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">챙길 이야기</h2>
+        {care.pending.length ? (
+          <div className="mt-3 space-y-2.5">
+            {care.pending.map((item) => (
+              <div key={item.id} className="rounded-xl bg-white/75 p-3">
+                <p className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">{item.text}</p>
+                <p className="mt-1 text-xs text-[#8f7564]">등록일 {formatDateKo(item.createdAt.slice(0, 10))}</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button onClick={() => complete(item)} className="rounded-full bg-[#d85b36] py-2 text-xs font-semibold text-white">
+                    <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" /> 물어봤어요
+                  </button>
+                  <button onClick={() => onDelete(care.person, item)} className="rounded-full border border-[#ead8c9] bg-white py-2 text-xs font-medium text-[#c95735]">
+                    <Trash2 className="mr-1 inline h-3.5 w-3.5" /> 삭제
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 rounded-xl bg-white/75 p-3 text-sm leading-[1.6] text-[#7c6252]">다음에 챙길 이야기를 관리할 수 있습니다.</p>
+        )}
+      </section>
+
+      {care.upcoming.length > 0 && (
+        <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
+          <h2 className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">다가오는 일정</h2>
+          <div className="mt-3 space-y-2">
+            {care.upcoming.map((event) => (
+              <div key={event.id} className="flex items-center justify-between gap-3 rounded-xl bg-white/75 px-3 py-2">
+                <span className="min-w-0 text-sm font-medium text-[#5a392a]">{event.label}</span>
+                <span className="shrink-0 text-xs font-semibold text-[#c95735]">{formatDday(event.daysUntil)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
+        <h2 className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">최근 기록</h2>
+        <p className="mt-2 text-sm leading-[1.6] text-[#7c6252]">{latest ? `${formatDateKo(latest.date)} · ${latest.medium}` : `최근 기록 ${care.staleDays}일 없음`}</p>
+        <blockquote className="mt-3 rounded-xl bg-white/75 px-3 py-2 text-sm leading-relaxed text-[#5a392a]">“{getRecentMemory(care.person).split("\n")[0]}”</blockquote>
+      </section>
+    </div>
+  );
+}
+
+function PersonSelectCard({ care, onSelect }: { care: CarePerson; onSelect: (personId: string) => void }) {
+  return (
+    <button onClick={() => onSelect(care.person.id)} className="flex w-full items-center gap-3 rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3 text-left shadow-soft">
+      <Avatar person={care.person} size="sm" />
       <span className="min-w-0 flex-1">
-        <b className="block font-semibold text-[#2f1b12]">{person.name}</b>
-        <small className="block text-[#7c6252]">{getRelationLine(person)}</small>
+        <b className="block font-semibold text-[#2f1b12]">{care.person.name}</b>
+        <small className="block text-[#7c6252]">{getRelationLine(care.person)}</small>
       </span>
-      <span className="text-xs font-medium text-[#c95735]">{daysSince(person.lastContactDate)}일 전</span>
+      <span className="shrink-0 text-xs font-medium text-[#c95735]">{getSmallStatus(care)}</span>
     </button>
   );
 }
 
-function ManualTopics({ person, onSelect }: { person: Person; onSelect: (topic: ConversationTopic) => void }) {
-  const options = [
-    { id: "manual-hobby", icon: "🌿", topic: "취미 이야기", source: "취향 정보에서", reason: person.preferences.hobbies || "취미나 관심사를 가볍게 물어볼 수 있어요.", suggestedQuestion: "요즘도 관심 있는 일을 즐기고 있는지 물어보세요." },
-    { id: "manual-family", icon: "👨‍👩‍👧", topic: "가족 이야기", source: "가족 정보에서", reason: person.familyInfo.children[0]?.memo || person.familyInfo.spouseName || "가족 안부를 부담 없이 물어볼 수 있어요.", suggestedQuestion: "가족들은 잘 지내는지 가볍게 물어보세요." },
-    { id: "manual-work", icon: "💼", topic: "요즘 일상", source: "프로필 정보에서", reason: person.company || person.preferences.notes || "요즘 어떻게 지내는지 물어볼 수 있어요.", suggestedQuestion: "요즘은 어떻게 지내는지 자연스럽게 물어보세요." }
-  ];
+function CareBadges({ care }: { care: CarePerson }) {
+  const badges: { icon: "check" | "calendar" | "clock"; text: string }[] = [];
+  if (care.pending.length) badges.push({ icon: "check", text: `챙길 이야기 ${care.pending.length}개` });
+  if (care.upcoming[0]) badges.push({ icon: "calendar", text: `${care.upcoming[0].label} ${formatDday(care.upcoming[0].daysUntil)}` });
+  if (care.staleDays >= staleThresholdDays) badges.push({ icon: "clock", text: `최근 기록 ${care.staleDays}일 없음` });
+
+  if (!badges.length) return null;
 
   return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {badges.map((badge) => (
+        <span key={`${badge.icon}-${badge.text}`} className="inline-flex items-center rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[#8d5b45]">
+          {badge.icon === "check" && <CheckCircle2 className="mr-1 h-3.5 w-3.5 text-[#d85b36]" />}
+          {badge.icon === "calendar" && <CalendarDays className="mr-1 h-3.5 w-3.5 text-[#d85b36]" />}
+          {badge.icon === "clock" && <Clock3 className="mr-1 h-3.5 w-3.5 text-[#d85b36]" />}
+          {badge.text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function FollowUpCompletedPrompt({ person, item, onWrite, onDismiss }: { person: Person; item: FollowUpItem; onWrite: () => void; onDismiss: () => void }) {
+  return (
     <section className="rounded-[16px] border border-[#ead8c9] bg-[#fffaf3] p-3.5 shadow-soft">
-      <h2 className="text-[15px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">다른 이야기로 시작하기</h2>
-      <div className="mt-3 grid grid-cols-1 gap-2">
-        {options.map((option) => (
-          <button key={option.id} onClick={() => onSelect({ ...option, sensitivity: detectSensitivity(option.reason), label: undefined } as ConversationTopic)} className="rounded-xl bg-white px-3 py-2 text-left text-sm font-medium text-[#5a392a]">
-            {option.icon} {option.topic}
-          </button>
-        ))}
+      <p className="text-sm font-semibold text-[#d85b36]">물어봤어요 ✓</p>
+      <h2 className="mt-1 text-[17px] font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">새로 알게 된 내용이 있나요?</h2>
+      <p className="mt-1.5 text-sm leading-[1.6] text-[#7c6252]">{person.name}님과 “{item.text}”에 대해 나눈 내용을 이어서 기록할 수 있어요.</p>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button onClick={onWrite} className="rounded-full bg-[#d85b36] py-2.5 text-sm font-semibold text-white">기록 남기기</button>
+        <button onClick={onDismiss} className="rounded-full border border-[#ead8c9] bg-white py-2.5 text-sm font-medium text-[#5a392a]">그냥 완료</button>
       </div>
     </section>
   );
 }
 
-function LoadingCard({ text }: { text: string }) {
-  return (
-    <div className="rounded-[16px] border border-[#ead8c9] bg-[#fff6ee] p-4 text-center">
-      <Sparkles className="mx-auto h-8 w-8 animate-pulse text-[#d85b36]" />
-      <p className="mt-3 font-semibold leading-[1.45] tracking-[-0.015em] text-[#2f1b12]">{text}</p>
-    </div>
-  );
+function CareNotice() {
+  return <p className="rounded-2xl bg-[#fff1df] p-3 text-xs leading-relaxed text-[#7c6252]">안부 탭은 저장된 챙길 이야기, 날짜, 기념일만으로 정리됩니다. AI 호출은 사용하지 않아요.</p>;
 }
 
-function FallbackNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#ead8c9] bg-[#fff6ee] px-3 py-2.5">
-      <p className="text-xs font-medium leading-[1.5] text-[#8d5b45]">{message}</p>
-      <button onClick={onRetry} className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#c95735]">다시 시도</button>
-    </div>
-  );
+function buildCarePerson(person: Person): CarePerson {
+  const pending = getPendingFollowUps(person);
+  const upcoming = getUpcomingEvents(person);
+  const staleDays = getStaleDays(person);
+  const score = pending.length * 1000 + (upcoming[0] ? 500 - upcoming[0].daysUntil : 0) + (staleDays >= staleThresholdDays ? Math.min(staleDays, 180) : 0);
+  return { person, pending, upcoming, staleDays, score };
 }
 
-function PrivacyNotice() {
-  return <p className="rounded-2xl bg-[#fff1df] p-3 text-xs leading-relaxed text-[#7c6252]">안부 추천을 위해 선택한 사람의 일부 기록이 AI 분석에 사용됩니다.</p>;
+function shouldShowCarePerson(care: CarePerson) {
+  return care.pending.length > 0 || care.upcoming.length > 0 || care.staleDays >= staleThresholdDays;
 }
 
-function sortCheckInPeople(people: Person[]) {
-  return [...people].sort((a, b) => {
-    const aOverdue = daysSince(a.lastContactDate) - (a.remindIntervalDays || 60);
-    const bOverdue = daysSince(b.lastContactDate) - (b.remindIntervalDays || 60);
-    if (bOverdue !== aOverdue) return bOverdue - aOverdue;
-    if (b.history.length !== a.history.length) return b.history.length - a.history.length;
-    return daysSince(b.lastContactDate) - daysSince(a.lastContactDate);
-  });
-}
-
-function buildPersonPayload(person: Person) {
-  return {
-    id: person.id,
-    name: person.name,
-    category: person.category,
-    groups: person.groups,
-    company: person.company,
-    lastContactDate: person.lastContactDate,
-    lastContactMedium: person.lastContactMedium,
-    familyInfo: person.familyInfo,
-    preferences: person.preferences,
-    eventsHistory: person.eventsHistory.slice(0, 5),
-    history: person.history.slice(0, 6)
-  };
-}
-
-function normalizeTopics(rawTopics: any[], person: Person): ConversationTopic[] {
-  const localFacts = buildFactSet(person);
-  return rawTopics
-    .filter((topic) => topic?.topic && topic?.reason && topic?.source && topic?.suggestedQuestion)
-    .map((topic, index) => ({
-      id: String(topic.id || `ai-${index}`),
-      icon: String(topic.icon || pickIcon(String(topic.topic))),
-      topic: String(topic.topic),
-      reason: String(topic.reason),
-      source: String(topic.source),
-      sensitivity: topic.sensitivity === "sensitive" ? "sensitive" : detectSensitivity(`${topic.topic} ${topic.reason}`),
-      suggestedQuestion: String(topic.suggestedQuestion)
-    }))
-    .filter((topic) => isGroundedTopic(topic, localFacts))
-    .slice(0, 4);
-}
-
-function makeLocalTopics(person: Person): ConversationTopic[] {
-  return buildCheckInTopics(person) as ConversationTopic[];
-}
-
-function normalizeStarters(raw: any, person: Person, topic: ConversationTopic, tone: "casual" | "polite" | "short"): StarterSet {
-  return {
-    natural: String(raw?.natural || makeLocalStarters(person, topic, tone).natural),
-    friendly: String(raw?.friendly || makeLocalStarters(person, topic, tone).friendly),
-    polite: String(raw?.polite || makeLocalStarters(person, topic, tone).polite)
-  };
-}
-
-function makeLocalStarters(person: Person, topic: ConversationTopic, tone: "casual" | "polite" | "short"): StarterSet {
-  return buildCandidateStarters(person, topic, tone);
-}
-
-function detectSensitivity(text: string): "normal" | "sensitive" {
-  return sensitivePattern.test(text) ? "sensitive" : "normal";
-}
-
-function pickIcon(text: string) {
-  if (/커피|카페|핸드드립/.test(text)) return "☕";
-  if (/테니스|운동|축구|골프/.test(text)) return "🎾";
-  if (/가족|딸|아들|아내|남편|아이/.test(text)) return "👧";
-  if (/회사|업무|직장|이직/.test(text)) return "💼";
-  if (/아프|건강|수술|병원|걱정/.test(text)) return "❤️";
-  return "🤚";
-}
-
-function makeTopicTitle(text: string) {
-  if (/커피|카페|핸드드립/.test(text)) return "요즘도 커피 즐겨요?";
-  if (/테니스|운동/.test(text)) return "운동 이야기는 어때요?";
-  if (/회사|업무|직장/.test(text)) return "요즘 일은 어때요?";
-  return text.length > 18 ? `${text.slice(0, 18)}...` : text;
-}
-
-function buildFactSet(person: Person) {
-  return [
-    person.name,
-    person.category,
-    person.company,
-    ...person.groups,
-    person.preferences.food,
-    person.preferences.hobbies,
-    person.preferences.notes,
-    person.familyInfo.spouseName || "",
-    ...person.familyInfo.children.flatMap((child) => [child.name, child.ageOrBirth, child.memo]),
-    ...person.history.map((history) => history.summary),
-    ...person.eventsHistory.flatMap((event) => [event.type, event.amountOrGift, event.note])
-  ].filter(Boolean).map((fact) => normalizeMemoryText(String(fact)));
-}
-
-function isGroundedTopic(topic: ConversationTopic, facts: string[]) {
-  const combined = normalizeMemoryText(`${topic.topic} ${topic.reason} ${topic.source}`);
-  if (!combined) return false;
-  return facts.some((fact) => fact.length >= 2 && (combined.includes(fact.slice(0, Math.min(fact.length, 12))) || fact.includes(combined.slice(0, Math.min(combined.length, 12)))));
-}
-
-function dedupeTopics(topics: ConversationTopic[]) {
-  const seen = new Set<string>();
-  return topics.filter((topic) => {
-    const key = normalizeMemoryText(`${topic.topic}:${topic.reason}`);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-async function readAiJson(response: Response): Promise<any> {
-  const text = await response.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    throw new Error("AI 서버 응답 형식이 올바르지 않아요.");
+function sortCarePeople(a: CarePerson, b: CarePerson) {
+  if (b.score !== a.score) return b.score - a.score;
+  if (b.pending.length !== a.pending.length) return b.pending.length - a.pending.length;
+  if ((a.upcoming[0]?.daysUntil ?? 999) !== (b.upcoming[0]?.daysUntil ?? 999)) {
+    return (a.upcoming[0]?.daysUntil ?? 999) - (b.upcoming[0]?.daysUntil ?? 999);
   }
+  return b.staleDays - a.staleDays;
+}
+
+function getHeadline(care: CarePerson) {
+  if (care.pending[0]) return care.pending[0].text;
+  if (care.upcoming[0]) return `${care.upcoming[0].label} ${formatDday(care.upcoming[0].daysUntil)}`;
+  if (care.staleDays >= staleThresholdDays) return `최근 기록 ${care.staleDays}일 없음`;
+  return getRecentMemory(care.person).split("\n")[0];
+}
+
+function getSmallStatus(care: CarePerson) {
+  if (care.pending.length) return `${care.pending.length}개`;
+  if (care.upcoming[0]) return formatDday(care.upcoming[0].daysUntil);
+  return `${care.staleDays}일 전`;
+}
+
+function getStaleDays(person: Person) {
+  const latest = getLatestHistory(person);
+  return daysSince(latest?.date || person.lastContactDate);
+}
+
+function getLatestHistory(person: Person) {
+  return [...person.history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] || null;
+}
+
+function getUpcomingEvents(person: Person): UpcomingEvent[] {
+  const events: UpcomingEvent[] = [];
+
+  person.eventsHistory.forEach((event) => {
+    const annual = isAnnualEvent(event.type, event.amountOrGift, event.note);
+    const daysUntil = getDaysUntilEvent(event.date, annual);
+    if (daysUntil === null || daysUntil > upcomingWindowDays) return;
+    events.push({
+      id: `event-${event.id}`,
+      label: event.type || event.amountOrGift || "다가오는 일정",
+      date: event.date,
+      daysUntil
+    });
+  });
+
+  person.familyInfo.children.forEach((child, index) => {
+    if (!child.birthDate) return;
+    const daysUntil = getDaysUntilEvent(child.birthDate, true);
+    if (daysUntil === null || daysUntil > upcomingWindowDays) return;
+    events.push({
+      id: `child-${index}-${child.birthDate}`,
+      label: `${child.name || "자녀"} 생일`,
+      date: child.birthDate,
+      daysUntil
+    });
+  });
+
+  return events.sort((a, b) => a.daysUntil - b.daysUntil).slice(0, 3);
+}
+
+function isAnnualEvent(...values: string[]) {
+  return values.some((value) => /생일|기념/.test(value || ""));
+}
+
+function getDaysUntilEvent(dateText: string, annual: boolean) {
+  if (!dateText) return null;
+  const source = new Date(dateText);
+  if (Number.isNaN(source.getTime())) return null;
+
+  const today = startOfDay(new Date());
+  const target = startOfDay(new Date(source));
+  if (annual) {
+    target.setFullYear(today.getFullYear());
+    if (target < today) target.setFullYear(today.getFullYear() + 1);
+  }
+  if (target < today) return null;
+  return Math.round((target.getTime() - today.getTime()) / 86400000);
+}
+
+function startOfDay(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function formatDday(days: number) {
+  return days === 0 ? "D-Day" : `D-${days}`;
 }

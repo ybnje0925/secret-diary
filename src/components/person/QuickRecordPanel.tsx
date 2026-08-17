@@ -1,9 +1,10 @@
 import { AlertCircle, Check, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { useState } from "react";
-import type { ContactMedium, Person } from "../../types";
+import type { ContactMedium, Person, RecordAiAnalysis } from "../../types";
 import { formatDateKo } from "../../utils/saramdam";
 import type { ApprovedMemoryItem, StorySavePayload } from "./StoryCaptureSheet";
 import { analyzeStoryTextForReview } from "./StoryCaptureSheet";
+import { inferFollowUpText } from "../../utils/followUps";
 
 interface Props {
   person: Person;
@@ -20,10 +21,13 @@ export default function QuickRecordPanel({ person, aiEnabled = true, onSave }: P
   const [medium, setMedium] = useState<ContactMedium>("기타");
   const [summary, setSummary] = useState("");
   const [items, setItems] = useState<ApprovedMemoryItem[]>([]);
+  const [aiAnalysis, setAiAnalysis] = useState<RecordAiAnalysis | undefined>(undefined);
   const [isReviewing, setIsReviewing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [followUpEnabled, setFollowUpEnabled] = useState(false);
+  const [followUpText, setFollowUpText] = useState("");
 
   const trimmedText = text.trim();
   const isTooLong = text.length > maxQuickTextLength;
@@ -47,6 +51,8 @@ export default function QuickRecordPanel({ person, aiEnabled = true, onSave }: P
       setMedium(result.medium);
       setSummary(result.summary);
       setItems(result.items);
+      setAiAnalysis(result.aiAnalysis);
+      if (!followUpText.trim()) setFollowUpText(inferFollowUpText(result.summary || trimmedText));
       setIsReviewing(true);
     } catch (error: any) {
       setMessage(error?.message || "AI 정리에 실패했어요. 작성한 내용은 그대로 남아 있어요.");
@@ -63,9 +69,14 @@ export default function QuickRecordPanel({ person, aiEnabled = true, onSave }: P
         date,
         medium,
         summary: trimmedText,
-        rawTranscript: trimmedText
+        rawTranscript: trimmedText,
+        aiAnalysis: undefined
       },
-      approvedItems: []
+      approvedItems: [],
+      followUp: {
+        enabled: followUpEnabled,
+        text: followUpText.trim() || inferFollowUpText(trimmedText)
+      }
     });
   };
 
@@ -78,9 +89,14 @@ export default function QuickRecordPanel({ person, aiEnabled = true, onSave }: P
         date,
         medium,
         summary: nextSummary,
-        rawTranscript: trimmedText || undefined
+        rawTranscript: trimmedText || undefined,
+        aiAnalysis
       },
-      approvedItems: items.filter((item) => item.selected && item.text.trim()).map((item) => ({ ...item, text: item.text.trim() }))
+      approvedItems: items.filter((item) => item.selected && item.text.trim()).map((item) => ({ ...item, text: item.text.trim() })),
+      followUp: {
+        enabled: followUpEnabled,
+        text: followUpText.trim() || inferFollowUpText(nextSummary)
+      }
     });
   };
 
@@ -92,6 +108,9 @@ export default function QuickRecordPanel({ person, aiEnabled = true, onSave }: P
       setText("");
       setSummary("");
       setItems([]);
+      setAiAnalysis(undefined);
+      setFollowUpEnabled(false);
+      setFollowUpText("");
       setIsReviewing(false);
       setSaved(false);
     }, 900);
@@ -138,6 +157,16 @@ export default function QuickRecordPanel({ person, aiEnabled = true, onSave }: P
         />
         <p className={`mt-1 text-right text-xs font-medium ${isTooLong ? "text-[#c95735]" : "text-[#8f7564]"}`}>{text.length.toLocaleString()} / {maxQuickTextLength.toLocaleString()}</p>
 
+        {!isReviewing && (
+          <FollowUpEditor
+            enabled={followUpEnabled}
+            text={followUpText}
+            fallbackText={inferFollowUpText(trimmedText)}
+            onEnabledChange={setFollowUpEnabled}
+            onTextChange={setFollowUpText}
+          />
+        )}
+
         {message && (
           <p className={`mt-3 flex gap-2 rounded-2xl p-3 text-[13px] font-medium leading-[1.5] ${saved ? "bg-[#f3f6e8] text-[#5a6d35]" : "bg-[#fff1e8] text-[#c95735]"}`}>
             {!saved && <AlertCircle className="h-4 w-4 shrink-0" />}
@@ -179,6 +208,14 @@ export default function QuickRecordPanel({ person, aiEnabled = true, onSave }: P
             <textarea value={summary} onChange={(event) => setSummary(event.target.value)} className="saram-input min-h-28 resize-none text-[15px] leading-[1.65]" />
           </label>
 
+          <FollowUpEditor
+            enabled={followUpEnabled}
+            text={followUpText}
+            fallbackText={inferFollowUpText(summary)}
+            onEnabledChange={setFollowUpEnabled}
+            onTextChange={setFollowUpText}
+          />
+
           {items.length > 0 && (
             <div className="space-y-3">
               {items.map((item, index) => (
@@ -206,6 +243,45 @@ export default function QuickRecordPanel({ person, aiEnabled = true, onSave }: P
             선택한 이야기 사람談에 담기
           </button>
         </div>
+      )}
+    </section>
+  );
+}
+
+function FollowUpEditor({
+  enabled,
+  text,
+  fallbackText,
+  onEnabledChange,
+  onTextChange
+}: {
+  enabled: boolean;
+  text: string;
+  fallbackText: string;
+  onEnabledChange: (value: boolean) => void;
+  onTextChange: (value: string) => void;
+}) {
+  return (
+    <section className="mt-3 rounded-2xl border border-[#ead8c9] bg-white/70 p-3.5">
+      <label className="flex items-center gap-2 text-sm font-semibold text-[#2f1b12]">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(event) => {
+            onEnabledChange(event.target.checked);
+            if (event.target.checked && !text.trim()) onTextChange(fallbackText);
+          }}
+          className="h-5 w-5 accent-[#d85b36]"
+        />
+        다음에 챙기기
+      </label>
+      {enabled && (
+        <input
+          value={text}
+          onChange={(event) => onTextChange(event.target.value)}
+          placeholder="예) 제주도 여행 잘 다녀왔는지"
+          className="saram-input mt-3 py-3 text-sm"
+        />
       )}
     </section>
   );

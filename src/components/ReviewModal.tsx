@@ -3,6 +3,7 @@ import { Person } from "../types";
 import { calculateAge } from "../utils/age";
 import { X, Clock, Sparkles, Smile, MessageSquare, Briefcase, Heart, Baby, UtensilsCrossed, Dumbbell } from "lucide-react";
 import { motion } from "motion/react";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
 
 interface ReviewModalProps {
   person: Person;
@@ -27,6 +28,8 @@ const getRelationBadgeClass = (category: string) => {
 };
 
 export default function ReviewModal({ person, onClose }: ReviewModalProps) {
+  useBodyScrollLock(true);
+
   const [timeLeft, setTimeLeft] = useState(60);
   const [isCompleted, setIsCompleted] = useState(false);
 
@@ -66,21 +69,21 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
   const tips = getQuickTips(person);
 
   return (
-    <div id="review-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+    <div id="review-modal-overlay" className="saram-sheet-overlay z-50 bg-slate-900/50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 16 }}
-        className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl overflow-hidden font-sans flex flex-col border border-slate-200"
+        className="saram-sheet relative flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white font-sans shadow-xl"
       >
-        <div className="p-7 sm:p-8 flex flex-col space-y-5">
+        <div className="flex flex-1 flex-col space-y-5 overflow-y-auto p-5 sm:p-8">
 
           <div className="flex items-start justify-between pb-4 border-b border-slate-200">
             <div>
               <span className="text-[11px] font-medium bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full uppercase tracking-wider">1-Min Quick Review</span>
               <h2 className="mt-2 text-[20px] font-semibold text-slate-900">{person.name}님과 만나기 전 짧은 기억</h2>
             </div>
-            <button id="close-review-modal-btn" onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 hover:bg-slate-100 rounded-full">
+            <button id="close-review-modal-btn" onClick={onClose} className="saram-touch rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -186,7 +189,7 @@ export default function ReviewModal({ person, onClose }: ReviewModalProps) {
             </ul>
           </div>
 
-          <button id="confirm-review-finished-btn" onClick={onClose} className="w-full bg-slate-900 text-white font-medium py-4 rounded-xl hover:bg-slate-800 transition-all text-sm flex items-center justify-center gap-2 mt-2">
+          <button id="confirm-review-finished-btn" onClick={onClose} className="saram-touch mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 py-4 text-sm font-medium text-white transition-all hover:bg-slate-800">
             <Smile className="w-4.5 h-4.5" /> 복습 완료! 미팅 시작하기
           </button>
 
