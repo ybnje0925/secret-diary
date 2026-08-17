@@ -28,6 +28,7 @@ interface Props {
   onDeleteEvent: (eventId: string) => void;
   onCompleteFollowUp: (followUpId: string) => void;
   onDeleteFollowUp: (followUpId: string) => void;
+  onSaveFollowUp: (sourceRecordId: string, text: string) => void;
   onStartFollowUpStory: (followUpId: string, referenceText: string) => void;
 }
 
@@ -50,6 +51,7 @@ export default function PersonDetailView({
   onDeleteEvent,
   onCompleteFollowUp,
   onDeleteFollowUp,
+  onSaveFollowUp,
   onStartFollowUpStory
 }: Props) {
   const [activeTab, setActiveTab] = useState<DetailTab>("최근 이야기");
@@ -100,13 +102,13 @@ export default function PersonDetailView({
         </span>
       </div>
 
-      <MemorySummaryCard person={person} aiEnabled={aiEnabled} onEdit={() => onEdit("preferences")} onSaveBriefing={onSaveBriefing} />
-
-      <FollowUpSection
+      <MemorySummaryCard
         person={person}
-        onComplete={onCompleteFollowUp}
-        onDelete={onDeleteFollowUp}
-        onStartStory={onStartFollowUpStory}
+        aiEnabled={aiEnabled}
+        onCompleteFollowUp={onCompleteFollowUp}
+        onDeleteFollowUp={onDeleteFollowUp}
+        onSaveFollowUp={onSaveFollowUp}
+        onSaveBriefing={onSaveBriefing}
       />
 
       {person.history.length === 0 && !person.preferences.notes && (

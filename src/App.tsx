@@ -381,6 +381,10 @@ export default function App() {
     });
   };
 
+  const handleSaveFollowUp = (personId: string, sourceRecordId: string, text: string) => {
+    updatePerson(personId, (person) => upsertPendingFollowUp(person, sourceRecordId, text));
+  };
+
   const handleDeleteHistory = (personId: string, historyId: string) => {
     requestConfirm({
       title: "이야기 기록을 삭제할까요?",
@@ -655,6 +659,7 @@ export default function App() {
                 onDeleteEvent={(eventId) => handleDeleteEvent(selectedPerson.id, eventId)}
                 onCompleteFollowUp={(followUpId) => handleCompleteFollowUp(selectedPerson.id, followUpId)}
                 onDeleteFollowUp={(followUpId) => handleDeleteFollowUp(selectedPerson.id, followUpId)}
+                onSaveFollowUp={(sourceRecordId, text) => handleSaveFollowUp(selectedPerson.id, sourceRecordId, text)}
                 onStartFollowUpStory={(followUpId, referenceText) => startFollowUpStory(selectedPerson.id, followUpId, referenceText)}
               />
             )}

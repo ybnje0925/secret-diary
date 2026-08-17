@@ -22,8 +22,10 @@ export default function LongTimeNoSee({ people, onOpenPerson, onViewAll }: Props
           <button key={person.id} onClick={() => onOpenPerson(person.id)} className="w-[72px] shrink-0 text-center">
             <Avatar person={person} size="sm" />
             <span className="mt-1.5 block truncate text-xs font-semibold text-[#2f1b12]">{person.name}</span>
-            <span className="block text-xs text-[#7c6252]">마지막 연락 {daysSince(person.lastContactDate)}일 전</span>
-            <span className="mt-0.5 block truncate text-[11px] text-[#8f7564]">{formatRemindInterval(person.remindIntervalDays)}</span>
+            <span className="block text-xs leading-[1.35] text-[#7c6252]">
+              마지막 연락<br /><span className="whitespace-nowrap">{daysSince(person.lastContactDate)}일 전</span>
+            </span>
+            <span className="mt-0.5 block whitespace-nowrap text-[11px] text-[#8f7564]">{formatRemindInterval(person.remindIntervalDays)}</span>
           </button>
         ))}
       </div>
