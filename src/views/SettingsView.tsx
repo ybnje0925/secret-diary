@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ConfirmDialogOptions } from "../components/common/ConfirmDialog";
 import { CustomGroup, Person } from "../types";
 import { AppSettings } from "../utils/appSettings";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
 import {
   changeVaultPin,
   decryptBackupPayload,
@@ -448,9 +449,9 @@ export default function SettingsView({
                   <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.summarize)}</dd>
                   <dt className="font-medium text-[#8f7564]">최근 브리핑</dt>
                   <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.personBriefing)}</dd>
-                  <dt className="font-medium text-[#8f7564]">AI 안부 추천</dt>
+                  <dt className="font-medium text-[#8f7564]">중지된 추천 API</dt>
                   <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.checkInSuggestions)}</dd>
-                  <dt className="font-medium text-[#8f7564]">AI 안부 문구</dt>
+                  <dt className="font-medium text-[#8f7564]">중지된 문구 API</dt>
                   <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.checkInStarters)}</dd>
                   {(aiHealth.reason || aiHealth.meta?.reason) && (
                     <>
@@ -693,9 +694,11 @@ function RestorePinModal({
 }
 
 function ModalShell({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+  useBodyScrollLock();
+
   return (
-    <div className="fixed inset-0 z-[80] flex items-end bg-black/30 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:items-center sm:justify-center">
-      <section className="w-full max-w-sm rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.16)]">
+    <div className="fixed inset-0 z-[80] flex items-end justify-center overflow-hidden bg-black/30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center">
+      <section className="max-h-[min(92dvh,calc(100dvh-2rem))] w-full max-w-sm overflow-y-auto rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.16)]">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{title}</h2>
           <button onClick={onClose} className="rounded-full bg-[#f4e8dc] p-2 text-[#5a392a]">

@@ -16,14 +16,19 @@ const items = [
 ];
 
 export default function BottomNavigation({ activeTab, onChangeTab, onQuickRecord }: Props) {
+  const selectTab = (tab: AppTab) => {
+    if (tab === activeTab) return;
+    onChangeTab(tab);
+  };
+
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ead8c9] bg-[#fffaf3]/95 px-5 pb-[max(0.45rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur">
-      <div className="mx-auto grid max-w-md grid-cols-5 items-center">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-[#ead8c9] bg-[#fffaf3]/95 px-3 pb-[max(0.55rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur">
+      <div className="mx-auto grid max-w-md grid-cols-5 items-end">
         {items.slice(0, 2).map((item) => {
           const Icon = item.icon;
           const active = activeTab === item.id;
           return (
-            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-0.5 py-1 text-[10px] font-medium ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
+            <button key={item.id} onClick={() => selectTab(item.id)} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1 text-[10px] font-medium ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
               <Icon className="h-[19px] w-[19px]" />
               {item.label}
             </button>
@@ -36,7 +41,7 @@ export default function BottomNavigation({ activeTab, onChangeTab, onQuickRecord
           const Icon = item.icon;
           const active = activeTab === item.id;
           return (
-            <button key={item.id} onClick={() => onChangeTab(item.id)} className={`flex flex-col items-center gap-0.5 py-1 text-[10px] font-medium ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
+            <button key={item.id} onClick={() => selectTab(item.id)} className={`flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl px-1 py-1 text-[10px] font-medium ${active ? "text-[#d85b36]" : "text-[#8f7564]"}`}>
               <Icon className="h-[19px] w-[19px]" />
               {item.label}
             </button>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ContactMedium, InteractionHistory, Person } from "../../types";
 import { findPendingFollowUpForRecord, inferFollowUpText } from "../../utils/followUps";
 import { formatDateKo } from "../../utils/saramdam";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 interface Props {
   person: Person;
@@ -84,6 +85,7 @@ function HistoryEditor({
   onClose: () => void;
   onSave: (history: InteractionHistory, followUpText?: string | null) => void;
 }) {
+  useBodyScrollLock();
   const existingFollowUp = findPendingFollowUpForRecord(person, history.id);
   const [date, setDate] = useState(history.date);
   const [medium, setMedium] = useState<ContactMedium>(history.medium);
@@ -92,7 +94,7 @@ function HistoryEditor({
   const [followUpText, setFollowUpText] = useState(existingFollowUp?.text || "");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
+    <div className="saram-sheet-overlay" onClick={onClose}>
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -103,7 +105,7 @@ function HistoryEditor({
           );
         }}
         onClick={(event) => event.stopPropagation()}
-        className="mb-[max(0.75rem,env(safe-area-inset-bottom))] w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
+        className="saram-sheet p-4"
       >
         <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">기록 수정</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">

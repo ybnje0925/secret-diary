@@ -138,16 +138,21 @@ export default function App() {
     const updateKeyboardState = () => {
       const activeElement = document.activeElement;
       const isFormControl = activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement || activeElement instanceof HTMLSelectElement;
-      setKeyboardOpen(isFormControl && window.innerHeight - visualViewport.height > 120);
+      const viewportGap = window.innerHeight - visualViewport.height;
+      setKeyboardOpen(isFormControl && viewportGap > 120);
+    };
+
+    const updateKeyboardStateSoon = () => {
+      window.setTimeout(updateKeyboardState, 80);
     };
 
     visualViewport.addEventListener("resize", updateKeyboardState);
     window.addEventListener("focusin", updateKeyboardState);
-    window.addEventListener("focusout", updateKeyboardState);
+    window.addEventListener("focusout", updateKeyboardStateSoon);
     return () => {
       visualViewport.removeEventListener("resize", updateKeyboardState);
       window.removeEventListener("focusin", updateKeyboardState);
-      window.removeEventListener("focusout", updateKeyboardState);
+      window.removeEventListener("focusout", updateKeyboardStateSoon);
     };
   }, []);
 
@@ -612,8 +617,8 @@ export default function App() {
   const selectedPerson = people.find((person) => person.id === selectedPersonId) || null;
 
   return (
-    <div className="min-h-[100svh] bg-[#fff8ef] text-[#2f1b12]">
-      <main className="mx-auto min-h-[100svh] w-full max-w-md px-4 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] md:max-w-3xl lg:max-w-5xl">
+    <div className="min-h-[100dvh] bg-[#fff8ef] text-[#2f1b12]">
+      <main className="mx-auto min-h-[100dvh] w-full max-w-md px-3.5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] min-[380px]:px-4 md:max-w-3xl lg:max-w-5xl">
         {people.length === 0 && layer === "root" && !(testToolsEnabled && activeTab === "settings") ? (
           <div className="flex min-h-[70vh] flex-col justify-center space-y-4 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f8d8c7] text-3xl">🌿</div>

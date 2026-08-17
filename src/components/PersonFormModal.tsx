@@ -3,6 +3,7 @@ import { Person, CategoryType, ChildInfo, CustomGroup, EventHistoryItem, EventTy
 import { calculateAge } from "../utils/age";
 import { X, Plus, Trash2, Heart, Baby, Sparkles, Smile, Phone, Briefcase, Gift, Bell } from "lucide-react";
 import { motion } from "motion/react";
+import useBodyScrollLock from "../hooks/useBodyScrollLock";
 
 interface PersonFormModalProps {
   person?: Person | null; // If null, we are in CREATE mode
@@ -32,6 +33,8 @@ const BG_COLORS = [
 ];
 
 export default function PersonFormModal({ person, customGroups, onClose, onSave }: PersonFormModalProps) {
+  useBodyScrollLock(true);
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [company, setCompany] = useState("");
@@ -132,6 +135,7 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
     if (!name.trim()) return;
 
     const savedPerson: Person = {
+      ...(person || {}),
       id: person ? person.id : "p_" + Date.now(),
       name: name.trim(),
       phone: phone.trim(),
@@ -156,21 +160,21 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
   };
 
   return (
-    <div id="person-form-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+    <div id="person-form-modal-overlay" className="saram-sheet-overlay z-50 bg-slate-900/50 p-3 backdrop-blur-sm sm:items-center sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.97, y: 16 }}
-        className="relative w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden font-sans max-h-[90vh] flex flex-col border border-slate-200"
+        className="saram-sheet relative flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white font-sans shadow-xl sm:rounded-2xl"
       >
-        <div className="pt-5 px-6 pb-3 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 pb-3 pt-5 sm:px-6">
           <h2 className="text-base font-semibold text-slate-900">{person ? "지인 정보 수정" : "새 지인 등록"}</h2>
-          <button id="close-person-form-modal-btn" onClick={onClose} className="text-slate-400 hover:text-slate-700 transition-colors p-1.5 hover:bg-slate-100 rounded-full">
+          <button id="close-person-form-modal-btn" onClick={onClose} className="saram-touch rounded-full p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-5 flex-1 text-xs text-slate-700">
+        <form onSubmit={handleSave} className="flex-1 space-y-5 overflow-y-auto p-5 text-xs text-slate-700 sm:p-6">
 
           {/* Avatar */}
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
@@ -260,7 +264,7 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
             <div className="flex gap-2">
               <input id="new-group-tag-input" type="text" value={newGroupInput} onChange={(e) => setNewGroupInput(e.target.value)} placeholder="새로운 그룹 이름"
                 className="flex-1 text-[15px] bg-white border border-slate-200 rounded-lg px-3.5 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-600/20 font-medium text-slate-900" />
-              <button type="button" id="add-new-group-tag-btn" onClick={handleAddNewTag} className="py-2.5 px-5 bg-slate-900 hover:bg-slate-800 text-white font-medium rounded-lg text-xs transition-all">추가</button>
+              <button type="button" id="add-new-group-tag-btn" onClick={handleAddNewTag} className="saram-touch rounded-lg bg-slate-900 px-5 py-2.5 text-xs font-medium text-white transition-all hover:bg-slate-800">추가</button>
             </div>
           </div>
 
@@ -279,7 +283,7 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-700 flex items-center gap-1"><Baby className="w-4 h-4 text-slate-400" /> 자녀 목록 ({children.length}명)</span>
-                <button id="add-child-row-btn" type="button" onClick={handleAddChildRow} className="py-1 px-3 bg-teal-50 hover:bg-teal-100 text-teal-700 font-medium rounded-full text-[11px] flex items-center gap-1">
+                <button id="add-child-row-btn" type="button" onClick={handleAddChildRow} className="saram-touch flex items-center gap-1 rounded-full bg-teal-50 px-3 py-1 text-[11px] font-medium text-teal-700 hover:bg-teal-100">
                   <Plus className="w-3 h-3" /> 자녀 추가
                 </button>
               </div>
@@ -289,7 +293,7 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
                 return (
                   <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 relative">
                     <button type="button" id={`remove-child-btn-${idx}`} onClick={() => handleRemoveChildRow(idx)}
-                      className="absolute top-3 right-3 p-1.5 hover:bg-rose-50 text-rose-500 rounded-full transition-colors">
+                      className="absolute right-2 top-2 flex min-h-10 min-w-10 items-center justify-center rounded-full text-rose-500 transition-colors hover:bg-rose-50">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
 
@@ -327,7 +331,7 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
           <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-slate-700 flex items-center gap-1"><Gift className="w-4 h-4 text-slate-400" /> 경조사 & 선물 히스토리</span>
-              <button id="add-event-row-btn" type="button" onClick={handleAddEventRow} className="py-1 px-3 bg-teal-50 hover:bg-teal-100 text-teal-700 font-medium rounded-full text-[11px] flex items-center gap-1">
+              <button id="add-event-row-btn" type="button" onClick={handleAddEventRow} className="saram-touch flex items-center gap-1 rounded-full bg-teal-50 px-3 py-1 text-[11px] font-medium text-teal-700 hover:bg-teal-100">
                 <Plus className="w-3 h-3" /> 기록 추가
               </button>
             </div>
@@ -335,7 +339,7 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
             {eventsHistory.map((ev, idx) => (
               <div key={ev.id} className="bg-white border border-slate-200 rounded-lg p-3 space-y-2 relative">
                 <button type="button" id={`remove-event-btn-${idx}`} onClick={() => handleRemoveEventRow(idx)}
-                  className="absolute top-3 right-3 p-1.5 hover:bg-rose-50 text-rose-500 rounded-full transition-colors">
+                  className="absolute right-2 top-2 flex min-h-10 min-w-10 items-center justify-center rounded-full text-rose-500 transition-colors hover:bg-rose-50">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
                 <div className="grid grid-cols-2 gap-2 pr-6">
@@ -390,8 +394,8 @@ export default function PersonFormModal({ person, customGroups, onClose, onSave 
           </div>
 
           <div className="pt-4 border-t border-slate-200 flex justify-end gap-3 shrink-0">
-            <button type="button" id="cancel-person-form-btn" onClick={onClose} className="py-2.5 px-5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium rounded-lg text-xs transition-colors">취소</button>
-            <button type="submit" id="submit-person-form-btn" className="py-2.5 px-6 bg-teal-700 hover:bg-teal-800 text-white font-medium rounded-lg text-xs transition-colors">
+            <button type="button" id="cancel-person-form-btn" onClick={onClose} className="saram-touch rounded-lg bg-slate-100 px-5 py-2.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-200">취소</button>
+            <button type="submit" id="submit-person-form-btn" className="saram-touch rounded-lg bg-teal-700 px-6 py-2.5 text-xs font-medium text-white transition-colors hover:bg-teal-800">
               {person ? "변경 저장" : "지인 추가"}
             </button>
           </div>

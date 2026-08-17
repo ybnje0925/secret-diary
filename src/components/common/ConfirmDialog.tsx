@@ -1,4 +1,5 @@
 import { AlertTriangle, X } from "lucide-react";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 export interface ConfirmDialogOptions {
   title: string;
@@ -22,14 +23,16 @@ export default function ConfirmDialog({
   onCancel,
   onConfirm
 }: Props) {
+  useBodyScrollLock();
+
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-[#2f1b12]/35 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center" onClick={onCancel}>
+    <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-hidden bg-[#2f1b12]/35 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center" onClick={onCancel}>
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         onClick={(event) => event.stopPropagation()}
-        className="w-full max-w-md rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-[22px] border border-[#ead8c9] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
       >
         <div className="flex items-start gap-3">
           <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${danger ? "bg-[#fff1e8] text-[#c95735]" : "bg-[#fff1df] text-[#9a6044]"}`}>

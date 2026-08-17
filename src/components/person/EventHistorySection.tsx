@@ -2,6 +2,7 @@ import { Gift, MoreHorizontal, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { EventHistoryItem, EventType, Person } from "../../types";
 import { formatDateKo } from "../../utils/saramdam";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 
 interface Props {
   person: Person;
@@ -76,20 +77,21 @@ export default function EventHistorySection({ person, onSaveEvent, onDeleteEvent
 }
 
 function EventEditor({ event, onClose, onSave }: { event: EventHistoryItem | null; onClose: () => void; onSave: (event: EventHistoryItem) => void }) {
+  useBodyScrollLock();
   const [date, setDate] = useState(event?.date || new Date().toISOString().split("T")[0]);
   const [type, setType] = useState<EventType>(event?.type || "기념일");
   const [amountOrGift, setAmountOrGift] = useState(event?.amountOrGift || "");
   const [note, setNote] = useState(event?.note || "");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
+    <div className="saram-sheet-overlay" onClick={onClose}>
       <form
         onSubmit={(formEvent) => {
           formEvent.preventDefault();
           onSave({ id: event?.id || `e_${Date.now()}`, date, type, amountOrGift: amountOrGift.trim(), note: note.trim() });
         }}
         onClick={(formEvent) => formEvent.stopPropagation()}
-        className="mb-[max(0.75rem,env(safe-area-inset-bottom))] w-full max-w-md rounded-[22px] bg-[#fffaf3] p-4 shadow-[0_14px_40px_rgba(47,27,18,0.18)]"
+        className="saram-sheet p-4"
       >
         <h2 className="text-[20px] font-semibold leading-[1.35] tracking-[-0.025em] text-[#2f1b12]">{event ? "함께한 마음 수정" : "함께한 마음 기록"}</h2>
         <div className="mt-4 grid grid-cols-2 gap-3">

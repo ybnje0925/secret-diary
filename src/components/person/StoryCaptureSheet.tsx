@@ -2,6 +2,7 @@ import { AlertCircle, Check, ChevronRight, Loader2, MessageCircle, Mic, PenLine,
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import Avatar from "../common/Avatar";
+import useBodyScrollLock from "../../hooks/useBodyScrollLock";
 import { AiMemoryTag, ChildInfo, ContactMedium, InteractionHistory, Person, RecordAiAnalysis } from "../../types";
 import { getRelationLine } from "../../utils/saramdam";
 import { FollowUpDraft, inferFollowUpText } from "../../utils/followUps";
@@ -112,6 +113,7 @@ function getSpeechRecognitionCtor(): any {
 }
 
 export default function StoryCaptureSheet({ people, aiEnabled = true, initialPersonId, sourceFollowUpId, referenceText, onClose, onSave }: Props) {
+  useBodyScrollLock();
   const [selectedPersonId, setSelectedPersonId] = useState(initialPersonId || "");
   const [step, setStep] = useState<"person" | "method" | "input" | "review" | "done">(sourceFollowUpId && initialPersonId ? "input" : initialPersonId ? "method" : "person");
   const [method, setMethod] = useState<"voice" | "paste" | "direct" | null>(sourceFollowUpId ? "direct" : null);
@@ -239,8 +241,8 @@ export default function StoryCaptureSheet({ people, aiEnabled = true, initialPer
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#2f1b12]/35 px-3" onClick={onClose}>
-      <section onClick={(event) => event.stopPropagation()} className="mb-[max(0.75rem,env(safe-area-inset-bottom))] max-h-[92vh] w-full max-w-md overflow-y-auto rounded-[22px] bg-[#fffaf3] p-4 pb-6 shadow-[0_14px_40px_rgba(47,27,18,0.18)]">
+    <div className="saram-sheet-overlay" onClick={onClose}>
+      <section onClick={(event) => event.stopPropagation()} className="saram-sheet p-4 pb-6">
         <div className="mx-auto mb-4 h-1 w-16 rounded-full bg-[#cdb7a7]" />
         <div className="mb-5 flex items-start justify-between">
           <div>
