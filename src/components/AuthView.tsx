@@ -25,6 +25,13 @@ export default function AuthView() {
         : await supabase.auth.signInWithPassword({ email: cleanEmail, password });
       if (result.error) throw result.error;
       if (mode === "signup" && !result.data.session) {
+        const identities = result.data.user?.identities || [];
+        if (result.data.user && identities.length === 0) {
+          setMode("signin");
+          setEmail(cleanEmail);
+          setMessage("이미 가입된 이메일일 수 있어요. 비밀번호를 입력해 로그인해 주세요.");
+          return;
+        }
         setPendingConfirmationEmail(cleanEmail);
         setMessage("가입 확인 메일을 보냈어요. 메일의 버튼을 누르면 사람談으로 돌아옵니다.");
       } else {
