@@ -35,7 +35,7 @@ import {
 interface Props {
   people: Person[];
   customGroups: CustomGroup[];
-  vaultKey: CryptoKey;
+  vaultKey: CryptoKey | null;
   appSettings: AppSettings;
   onSettingsChange: (patch: Partial<AppSettings>) => void;
   onImport: (people: Person[], groups: CustomGroup[]) => void;
@@ -156,6 +156,10 @@ export default function SettingsView({
   };
 
   const handleEncryptedBackup = async () => {
+    if (!vaultKey) {
+      showToast("클라우드 모드에서는 설정의 내보내기를 사용해주세요.");
+      return;
+    }
     try {
       const { salt, payload } = await encryptBackupPayload(vaultKey, { people, customGroups });
       downloadJson(`saramdam-backup-${todayString()}.json`, {
@@ -345,8 +349,8 @@ export default function SettingsView({
       </header>
 
       <Section title="보안">
-        <SettingButton icon={<Lock />} label="앱 잠금" value="지금 잠그기" onClick={onLock} />
-        <SettingButton icon={<KeyRound />} label="PIN 변경" value="현재 PIN 확인 후 변경" onClick={() => setPinModalOpen(true)} />
+        <SettingButton icon={<Lock />} label={vaultKey ? "앱 잠금" : "로그아웃"} value={vaultKey ? "지금 잠그기" : "계정 전환"} onClick={onLock} />
+        <SettingButton icon={<KeyRound />} label="PIN 변경" value={vaultKey ? "현재 PIN 확인 후 변경" : "로컬 vault 전용"} onClick={vaultKey ? () => setPinModalOpen(true) : () => showToast("Supabase 계정 비밀번호는 인증 메일/대시보드 정책으로 관리합니다.")} />
         <SettingControl icon={<ShieldCheck />} label="자동 잠금">
           <div className="text-right">
             <select
@@ -498,7 +502,7 @@ export default function SettingsView({
         </Section>
       )}
 
-      {pinModalOpen && (
+      {pinModalOpen && vaultKey && (
         <PinChangeModal
           onClose={() => setPinModalOpen(false)}
           onChanged={(key, data) => {

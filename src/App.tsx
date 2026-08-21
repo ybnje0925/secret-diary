@@ -1,15 +1,19 @@
 ﻿import { AnimatePresence } from "motion/react";
+import type { Session } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
 import ConfirmDialog, { ConfirmDialogOptions } from "./components/common/ConfirmDialog";
 import BottomNavigation, { AppTab } from "./components/navigation/BottomNavigation";
 import LockScreen from "./components/LockScreen";
 import GroupManagerSheet from "./components/people/GroupManagerSheet";
 import StoryCaptureSheet, { ApprovedMemoryItem, StorySavePayload } from "./components/person/StoryCaptureSheet";
+import AuthView from "./components/AuthView";
+import { countVaultData, hasCompletedMigration, loadCloudVault, markMigrationComplete, saveCloudVault } from "./lib/saramdamCloud";
+import { supabase, supabaseConfigured } from "./lib/supabase";
 import { CustomGroup, EventHistoryItem, InteractionHistory, Person, PersonAiBriefing } from "./types";
 import { AppSettings, loadAppSettings, saveAppSettings } from "./utils/appSettings";
 import { completeFollowUp, deleteFollowUp, deletePendingFollowUpForRecord, linkFollowUpResult, upsertPendingFollowUp } from "./utils/followUps";
 import { normalizeMemoryText } from "./utils/saramdam";
-import { clearIncompleteVaultSetup, getVaultStorageState, saveVault, VaultData } from "./vault";
+import { clearIncompleteVaultSetup, getVaultStorageState, saveVault, unlockVault, VaultData } from "./vault";
 import AddPersonView, { EditSection } from "./views/AddPersonView";
 import CheckInView from "./views/CheckInView";
 import HomeView from "./views/HomeView";
@@ -30,7 +34,17 @@ const MIN_AUTO_LOCK_GRACE_MS = 10 * 60 * 1000;
 export default function App() {
   const testToolsEnabled =
     import.meta.env.VITE_ENABLE_TEST_TOOLS === "true";
+  const cloudMode = supabaseConfigured;
   const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(cloudMode);
+  const [cloudLoading, setCloudLoading] = useState(false);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [cloudError, setCloudError] = useState("");
+  const [migrationPromptVisible, setMigrationPromptVisible] = useState(false);
+  const [migrationPin, setMigrationPin] = useState("");
+  const [migrationError, setMigrationError] = useState("");
+  const [migrationLoading, setMigrationLoading] = useState(false);
   const [people, setPeople] = useState<Person[]>([]);
   const [customGroups, setCustomGroups] = useState<CustomGroup[]>([]);
   const [activeTab, setActiveTab] = useState<AppTab>("home");
@@ -60,6 +74,7 @@ export default function App() {
 
   const peopleRef = useRef<Person[]>([]);
   const groupsRef = useRef<CustomGroup[]>([]);
+  const activeUserIdRef = useRef<string | null>(null);
   const historyLayerRef = useRef<AppLayer>("root");
   const layerRef = useRef<AppLayer>("root");
   const groupManagerOpenRef = useRef(false);
@@ -70,17 +85,111 @@ export default function App() {
   const lastActiveAtRef = useRef(Date.now());
   const tabScrollPositionsRef = useRef<Record<AppTab, number>>({ home: 0, people: 0, checkin: 0, settings: 0 });
 
+  const clearSensitiveState = () => {
+    setVaultKey(null);
+    setPeople([]);
+    setCustomGroups([]);
+    peopleRef.current = [];
+    groupsRef.current = [];
+    setSelectedPersonId(null);
+    setCheckInPersonId(null);
+    setStoryInitialPersonId(undefined);
+    setStoryContext(undefined);
+    setEditingPerson(null);
+    setEditingSection(undefined);
+    setAddInitialName("");
+    setGroupManagerOpen(false);
+    setConfirmRequest(null);
+    setLayer("root");
+    setActiveTab("home");
+  };
+
   useEffect(() => { layerRef.current = layer; }, [layer]);
   useEffect(() => { groupManagerOpenRef.current = groupManagerOpen; }, [groupManagerOpen]);
   useEffect(() => { storyOpenRef.current = storyInitialPersonId !== undefined; }, [storyInitialPersonId]);
   useEffect(() => { confirmOpenRef.current = confirmRequest !== null; }, [confirmRequest]);
 
   useEffect(() => {
-    if (!vaultKey) return;
+    if (!vaultKey && !cloudReady) return;
     const initialLayer = historyLayerRef.current;
     window.history.replaceState({ layer: initialLayer }, "");
     window.history.pushState({ layer: initialLayer, guard: true }, "");
-  }, [vaultKey]);
+  }, [vaultKey, cloudReady]);
+
+  useEffect(() => {
+    if (!cloudMode || !supabase) return;
+    let mounted = true;
+
+    const applySession = (nextSession: Session | null) => {
+      if (!mounted) return;
+      const nextUserId = nextSession?.user.id || null;
+      if (activeUserIdRef.current !== nextUserId) {
+        clearSensitiveState();
+        setCloudReady(false);
+        setCloudError("");
+        setMigrationPromptVisible(false);
+        setMigrationPin("");
+        setMigrationError("");
+        activeUserIdRef.current = nextUserId;
+      }
+      setSession(nextSession);
+      setAuthLoading(false);
+    };
+
+    supabase.auth.getSession()
+      .then(({ data, error }) => {
+        if (error) throw error;
+        applySession(data.session);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setAuthLoading(false);
+        setCloudError("인증 세션을 확인하지 못했어요.");
+      });
+
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      applySession(nextSession);
+    });
+
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, [cloudMode]);
+
+  useEffect(() => {
+    if (!cloudMode || !session?.user) return;
+    let cancelled = false;
+    setCloudLoading(true);
+    setCloudError("");
+
+    Promise.all([loadCloudVault(), hasCompletedMigration()])
+      .then(([data, migrationDone]) => {
+        if (cancelled) return;
+        const loadedPeople = data.people as Person[];
+        setPeople(loadedPeople);
+        setCustomGroups(data.customGroups);
+        peopleRef.current = loadedPeople;
+        groupsRef.current = data.customGroups;
+        setSelectedPersonId(loadedPeople[0]?.id || null);
+        setCloudReady(true);
+
+        const dismissedKey = `saramdam_migration_dismissed_${session.user.id}`;
+        const dismissed = window.localStorage.getItem(dismissedKey) === "true";
+        const localVaultReady = getVaultStorageState() === "ready";
+        setMigrationPromptVisible(loadedPeople.length === 0 && localVaultReady && !migrationDone && !dismissed);
+      })
+      .catch(() => {
+        if (!cancelled) setCloudError("Supabase 데이터를 불러오지 못했어요.");
+      })
+      .finally(() => {
+        if (!cancelled) setCloudLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cloudMode, session?.user?.id]);
 
   useEffect(() => {
     const onPopState = (event: PopStateEvent) => {
@@ -191,6 +300,13 @@ export default function App() {
   const persistVault = (nextPeople: Person[], nextGroups: CustomGroup[]) => {
     peopleRef.current = nextPeople;
     groupsRef.current = nextGroups;
+    if (cloudMode && session?.user) {
+      saveCloudVault(session.user, { people: nextPeople, customGroups: nextGroups }).catch(() => {
+        setToast("클라우드 저장에 실패했어요. 네트워크를 확인해주세요.");
+        window.setTimeout(() => setToast(""), 2600);
+      });
+      return;
+    }
     if (!vaultKey) return;
     saveVault(vaultKey, { people: nextPeople, customGroups: nextGroups }).catch((error) => {
       console.error("Failed to persist encrypted vault:", error);
@@ -250,14 +366,16 @@ export default function App() {
   };
 
   const handleLock = () => {
-    setVaultKey(null);
-    setPeople([]);
-    setCustomGroups([]);
-    peopleRef.current = [];
-    groupsRef.current = [];
-    setSelectedPersonId(null);
-    setLayer("root");
-    setActiveTab("home");
+    clearSensitiveState();
+    if (cloudMode && supabase) {
+      setSession(null);
+      setCloudReady(false);
+      setMigrationPromptVisible(false);
+      supabase.auth.signOut().catch(() => {
+        setToast("로그아웃 요청을 완료하지 못했어요.");
+        window.setTimeout(() => setToast(""), 2200);
+      });
+    }
   };
 
   useEffect(() => {
@@ -557,6 +675,40 @@ export default function App() {
     setFirstUsePromptDismissed(false);
   };
 
+  const handleImportLegacyVault = async () => {
+    if (!session?.user || migrationLoading) return;
+    setMigrationLoading(true);
+    setMigrationError("");
+    try {
+      const { data } = await unlockVault(migrationPin);
+      const counts = countVaultData(data);
+      await saveCloudVault(session.user, data);
+      await markMigrationComplete(session.user, counts);
+      setPeople(data.people);
+      setCustomGroups(data.customGroups);
+      peopleRef.current = data.people;
+      groupsRef.current = data.customGroups;
+      setSelectedPersonId(data.people[0]?.id || null);
+      setMigrationPromptVisible(false);
+      setMigrationPin("");
+      setToast(`기존 데이터 가져오기 완료: 사람 ${counts.people}명, 기록 ${counts.records}개`);
+      window.setTimeout(() => setToast(""), 3200);
+    } catch {
+      setMigrationError("PIN을 확인하거나 네트워크 상태를 다시 봐주세요. 기존 로컬 데이터는 그대로 유지됩니다.");
+    } finally {
+      setMigrationLoading(false);
+    }
+  };
+
+  const dismissMigration = () => {
+    if (session?.user) {
+      window.localStorage.setItem(`saramdam_migration_dismissed_${session.user.id}`, "true");
+    }
+    setMigrationPromptVisible(false);
+    setMigrationPin("");
+    setMigrationError("");
+  };
+
   const handleClearAllData = () => {
     requestConfirm({
       title: "모든 데이터를 삭제할까요?",
@@ -596,7 +748,27 @@ export default function App() {
     setLayer("root");
   };
 
-  if (!vaultKey) {
+  if (cloudMode) {
+    if (authLoading) {
+      return <FullScreenStatus title="사람談을 여는 중" message="로그인 상태를 확인하고 있어요." />;
+    }
+    if (!session) {
+      return <AuthView />;
+    }
+    if (cloudError) {
+      return (
+        <FullScreenStatus
+          title="데이터를 불러오지 못했어요"
+          message={cloudError}
+          actionLabel="로그아웃"
+          onAction={handleLock}
+        />
+      );
+    }
+    if (cloudLoading || !cloudReady) {
+      return <FullScreenStatus title="기록을 불러오는 중" message="계정에 저장된 사람談 데이터를 준비하고 있어요." />;
+    }
+  } else if (!vaultKey) {
     if (entryStage === "onboarding") {
       return (
         <main className="min-h-[100svh] bg-[#fff8ef] px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] text-[#2f1b12]">
@@ -623,7 +795,16 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] bg-[#fff8ef] text-[#2f1b12]">
       <main className="mx-auto min-h-[100dvh] w-full max-w-md px-3.5 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-[calc(1.25rem+env(safe-area-inset-top))] min-[380px]:px-4 md:max-w-3xl lg:max-w-5xl">
-        {people.length === 0 && layer === "root" && !(testToolsEnabled && activeTab === "settings") ? (
+        {migrationPromptVisible && layer === "root" ? (
+          <LegacyMigrationPrompt
+            pin={migrationPin}
+            error={migrationError}
+            loading={migrationLoading}
+            onPinChange={setMigrationPin}
+            onImport={handleImportLegacyVault}
+            onDismiss={dismissMigration}
+          />
+        ) : people.length === 0 && layer === "root" && !(testToolsEnabled && activeTab === "settings") ? (
           <div className="flex min-h-[70vh] flex-col justify-center space-y-4 text-center">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#f8d8c7] text-3xl">🌿</div>
             <div>
@@ -794,6 +975,67 @@ export default function App() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function FullScreenStatus({ title, message, actionLabel, onAction }: { title: string; message: string; actionLabel?: string; onAction?: () => void }) {
+  return (
+    <main className="flex min-h-[100dvh] items-center justify-center bg-[#fff8ef] px-4 py-6 text-[#2f1b12]">
+      <section className="w-full max-w-md rounded-[24px] border border-[#ead8c9] bg-[#fffaf3] p-6 text-center shadow-[0_12px_32px_rgba(91,62,43,0.12)]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#f8d8c7] text-2xl">談</div>
+        <h1 className="mt-4 text-[21px] font-semibold leading-[1.35]">{title}</h1>
+        <p className="mt-2 text-sm leading-[1.6] text-[#7c6252]">{message}</p>
+        {actionLabel && onAction && (
+          <button onClick={onAction} className="mt-5 w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white">
+            {actionLabel}
+          </button>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function LegacyMigrationPrompt({
+  pin,
+  error,
+  loading,
+  onPinChange,
+  onImport,
+  onDismiss
+}: {
+  pin: string;
+  error: string;
+  loading: boolean;
+  onPinChange: (value: string) => void;
+  onImport: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="flex min-h-[70vh] flex-col justify-center space-y-4">
+      <section className="rounded-[24px] border border-[#ead8c9] bg-[#fffaf3] p-5 shadow-soft">
+        <h1 className="text-[21px] font-semibold leading-[1.35]">이 기기에 저장된 기존 사람談 데이터가 있어요.</h1>
+        <p className="mt-2 text-sm leading-[1.6] text-[#7c6252]">
+          기존 데이터를 계정으로 가져오면 다른 기기에서도 이어서 볼 수 있어요. 가져오기에 실패해도 로컬 데이터는 삭제되지 않습니다.
+        </p>
+        <input
+          value={pin}
+          onChange={(event) => onPinChange(event.target.value)}
+          type="password"
+          inputMode="numeric"
+          placeholder="기존 PIN"
+          className="saram-input mt-4"
+        />
+        {error && <p className="mt-3 rounded-2xl bg-[#fff1e8] p-3 text-sm font-medium text-[#8d5b45]">{error}</p>}
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button onClick={onDismiss} className="rounded-full border border-[#ead8c9] bg-white py-3 text-sm font-semibold text-[#5a392a]">
+            나중에
+          </button>
+          <button disabled={loading || pin.length === 0} onClick={onImport} className="rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white disabled:opacity-45">
+            {loading ? "가져오는 중..." : "기존 데이터 가져오기"}
+          </button>
+        </div>
+      </section>
     </div>
   );
 }
