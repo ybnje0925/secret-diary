@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { BrandTitle } from "./LockScreen";
+import { getAuthRedirectUrl } from "../lib/authRedirect";
 import { supabase } from "../lib/supabase";
 
 export default function AuthView() {
@@ -7,6 +8,7 @@ export default function AuthView() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async (event: FormEvent) => {
@@ -14,14 +16,41 @@ export default function AuthView() {
     if (!supabase || loading) return;
     setLoading(true);
     setMessage("");
+    setPendingConfirmationEmail("");
     try {
+      const cleanEmail = email.trim();
+      const emailRedirectTo = getAuthRedirectUrl();
       const result = mode === "signup"
-        ? await supabase.auth.signUp({ email: email.trim(), password })
-        : await supabase.auth.signInWithPassword({ email: email.trim(), password });
+        ? await supabase.auth.signUp({ email: cleanEmail, password, options: { emailRedirectTo } })
+        : await supabase.auth.signInWithPassword({ email: cleanEmail, password });
       if (result.error) throw result.error;
-      setMessage(mode === "signup" && !result.data.session ? "가입 확인 메일을 확인해주세요." : "로그인되었습니다.");
+      if (mode === "signup" && !result.data.session) {
+        setPendingConfirmationEmail(cleanEmail);
+        setMessage("가입 확인 메일을 보냈어요. 메일의 버튼을 누르면 사람談으로 돌아옵니다.");
+      } else {
+        setMessage("로그인되었습니다.");
+      }
     } catch (error: any) {
       setMessage(error?.message || "인증 처리 중 문제가 생겼어요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendConfirmation = async () => {
+    if (!supabase || !pendingConfirmationEmail || loading) return;
+    setLoading(true);
+    setMessage("");
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: pendingConfirmationEmail,
+        options: { emailRedirectTo: getAuthRedirectUrl() }
+      });
+      if (error) throw error;
+      setMessage("가입 확인 메일을 다시 보냈어요.");
+    } catch (error: any) {
+      setMessage(error?.message || "확인 메일 재발송 중 문제가 생겼어요.");
     } finally {
       setLoading(false);
     }
@@ -39,15 +68,19 @@ export default function AuthView() {
           <input value={email} onChange={(event) => setEmail(event.target.value)} type="email" required placeholder="이메일" className="saram-input" />
           <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" required minLength={6} placeholder="비밀번호" className="saram-input" />
           {message && <p className="rounded-2xl bg-[#fff1e8] p-3 text-sm font-medium text-[#8d5b45]">{message}</p>}
+          {pendingConfirmationEmail && (
+            <button type="button" onClick={resendConfirmation} disabled={loading} className="w-full rounded-full border border-[#ead8c9] bg-white py-3 text-sm font-medium text-[#5a392a] disabled:opacity-45">
+              확인 메일 다시 보내기
+            </button>
+          )}
           <button disabled={loading} className="w-full rounded-full bg-[#d85b36] py-3 text-sm font-semibold text-white disabled:opacity-45">
             {loading ? "처리 중..." : mode === "signin" ? "로그인" : "회원가입"}
           </button>
         </form>
-        <button onClick={() => setMode(mode === "signin" ? "signup" : "signin")} className="mt-4 w-full rounded-full border border-[#ead8c9] bg-white py-3 text-sm font-medium text-[#5a392a]">
+        <button onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setPendingConfirmationEmail(""); setMessage(""); }} className="mt-4 w-full rounded-full border border-[#ead8c9] bg-white py-3 text-sm font-medium text-[#5a392a]">
           {mode === "signin" ? "새 계정 만들기" : "이미 계정이 있어요"}
         </button>
       </section>
     </main>
   );
 }
-
