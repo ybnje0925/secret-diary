@@ -7,7 +7,6 @@ import { daysSince, formatDateKo, getRecentMemory, getRelationLine } from "../ut
 
 interface Props {
   people: Person[];
-  aiEnabled?: boolean;
   initialPersonId?: string | null;
   onContactComplete: (personId: string, history: InteractionHistory) => void;
   onCompleteFollowUp: (personId: string, followUpId: string) => void;
@@ -352,7 +351,7 @@ function FollowUpCompletedPrompt({ person, item, onWrite, onDismiss }: { person:
 }
 
 function CareNotice() {
-  return <p className="rounded-2xl bg-[#fff1df] p-3 text-xs leading-relaxed text-[#7c6252]">안부 탭은 저장된 챙길 이야기, 날짜, 기념일만으로 정리됩니다. AI 호출은 사용하지 않아요.</p>;
+  return <p className="rounded-2xl bg-[#fff1df] p-3 text-xs leading-relaxed text-[#7c6252]">안부 탭은 저장된 챙길 이야기, 날짜, 기념일을 기준으로 정리됩니다.</p>;
 }
 
 function buildCarePerson(person: Person): CarePerson {

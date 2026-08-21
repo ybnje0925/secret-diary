@@ -9,7 +9,7 @@ import StoryCaptureSheet, { ApprovedMemoryItem, StorySavePayload } from "./compo
 import AuthView from "./components/AuthView";
 import { countVaultData, hasCompletedMigration, loadCloudVault, markMigrationComplete, saveCloudVault } from "./lib/saramdamCloud";
 import { supabase, supabaseConfigured } from "./lib/supabase";
-import { CustomGroup, EventHistoryItem, InteractionHistory, Person, PersonAiBriefing } from "./types";
+import { CustomGroup, EventHistoryItem, InteractionHistory, Person } from "./types";
 import { AppSettings, loadAppSettings, saveAppSettings } from "./utils/appSettings";
 import { completeFollowUp, deleteFollowUp, deletePendingFollowUpForRecord, linkFollowUpResult, upsertPendingFollowUp } from "./utils/followUps";
 import { normalizeMemoryText } from "./utils/saramdam";
@@ -499,10 +499,6 @@ export default function App() {
     });
   };
 
-  const handleSaveFollowUp = (personId: string, sourceRecordId: string, text: string) => {
-    updatePerson(personId, (person) => upsertPendingFollowUp(person, sourceRecordId, text));
-  };
-
   const handleDeleteHistory = (personId: string, historyId: string) => {
     requestConfirm({
       title: "이야기 기록을 삭제할까요?",
@@ -644,13 +640,6 @@ export default function App() {
     savePeople(importedPeople);
     saveGroups(importedGroups);
     setSelectedPersonId(importedPeople[0]?.id || null);
-  };
-
-  const handleSaveBriefing = (personId: string, briefing: PersonAiBriefing) => {
-    updatePerson(personId, (person) => ({
-      ...person,
-      aiBriefing: briefing
-    }));
   };
 
   const handleCompleteFollowUp = (personId: string, followUpId: string) => {
@@ -831,16 +820,12 @@ export default function App() {
                   setStoryInitialPersonId(selectedPerson.id);
                 }}
                 onStartCheckIn={() => startCheckIn(selectedPerson.id)}
-                aiEnabled={appSettings.aiEnabled}
-                onSaveStory={(payload) => handleSaveStory(selectedPerson.id, payload)}
                 onUpdateHistory={(history, followUpText) => handleUpdateHistoryWithFollowUp(selectedPerson.id, history, followUpText)}
                 onDeleteHistory={(historyId) => handleDeleteHistory(selectedPerson.id, historyId)}
-                onSaveBriefing={(briefing) => handleSaveBriefing(selectedPerson.id, briefing)}
                 onSaveEvent={(event) => handleSaveEvent(selectedPerson.id, event)}
                 onDeleteEvent={(eventId) => handleDeleteEvent(selectedPerson.id, eventId)}
                 onCompleteFollowUp={(followUpId) => handleCompleteFollowUp(selectedPerson.id, followUpId)}
                 onDeleteFollowUp={(followUpId) => handleDeleteFollowUp(selectedPerson.id, followUpId)}
-                onSaveFollowUp={(sourceRecordId, text) => handleSaveFollowUp(selectedPerson.id, sourceRecordId, text)}
                 onStartFollowUpStory={(followUpId, referenceText) => startFollowUpStory(selectedPerson.id, followUpId, referenceText)}
               />
             )}
@@ -877,7 +862,6 @@ export default function App() {
             {layer === "root" && activeTab === "checkin" && (
               <CheckInView
                 people={people}
-                aiEnabled={appSettings.aiEnabled}
                 initialPersonId={checkInPersonId}
                 onContactComplete={(personId, history) => {
                   updatePerson(personId, (person) => ({
@@ -920,10 +904,6 @@ export default function App() {
             setActiveTab(tab);
             setCheckInPersonId(null);
           }}
-          onQuickRecord={() => {
-            setStoryContext(undefined);
-            setStoryInitialPersonId(null);
-          }}
         />
       )}
 
@@ -931,7 +911,6 @@ export default function App() {
         {storyInitialPersonId !== undefined && (
           <StoryCaptureSheet
             people={people}
-            aiEnabled={appSettings.aiEnabled}
             initialPersonId={storyInitialPersonId}
             sourceFollowUpId={storyContext?.sourceFollowUpId}
             referenceText={storyContext?.referenceText}

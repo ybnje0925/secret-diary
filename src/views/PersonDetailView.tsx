@@ -5,9 +5,7 @@ import EventHistorySection from "../components/person/EventHistorySection";
 import MemorySummaryCard from "../components/person/MemorySummaryCard";
 import PersonInfoSection from "../components/person/PersonInfoSection";
 import PersonTimeline from "../components/person/PersonTimeline";
-import QuickRecordPanel from "../components/person/QuickRecordPanel";
-import type { StorySavePayload } from "../components/person/StoryCaptureSheet";
-import { EventHistoryItem, FollowUpItem, InteractionHistory, Person, PersonAiBriefing } from "../types";
+import { EventHistoryItem, FollowUpItem, InteractionHistory, Person } from "../types";
 import { getCompletedFollowUps, getPendingFollowUps } from "../utils/followUps";
 import { daysSince, formatDateKo, getRelationLine } from "../utils/saramdam";
 import type { EditSection } from "./AddPersonView";
@@ -19,20 +17,16 @@ interface Props {
   onDeletePerson: () => void;
   onStartStory: () => void;
   onStartCheckIn: () => void;
-  aiEnabled?: boolean;
-  onSaveStory: (payload: StorySavePayload) => void;
   onUpdateHistory: (history: InteractionHistory, followUpText?: string | null) => void;
   onDeleteHistory: (historyId: string) => void;
-  onSaveBriefing: (briefing: PersonAiBriefing) => void;
   onSaveEvent: (event: EventHistoryItem) => void;
   onDeleteEvent: (eventId: string) => void;
   onCompleteFollowUp: (followUpId: string) => void;
   onDeleteFollowUp: (followUpId: string) => void;
-  onSaveFollowUp: (sourceRecordId: string, text: string) => void;
   onStartFollowUpStory: (followUpId: string, referenceText: string) => void;
 }
 
-const tabs = ["최근 이야기", "전체 기록", "빠른 기록", "정보", "함께한 마음"] as const;
+const tabs = ["최근 이야기", "전체 기록", "정보", "함께한 마음"] as const;
 type DetailTab = typeof tabs[number];
 
 export default function PersonDetailView({
@@ -42,16 +36,12 @@ export default function PersonDetailView({
   onDeletePerson,
   onStartStory,
   onStartCheckIn,
-  aiEnabled,
-  onSaveStory,
   onUpdateHistory,
   onDeleteHistory,
-  onSaveBriefing,
   onSaveEvent,
   onDeleteEvent,
   onCompleteFollowUp,
   onDeleteFollowUp,
-  onSaveFollowUp,
   onStartFollowUpStory
 }: Props) {
   const [activeTab, setActiveTab] = useState<DetailTab>("최근 이야기");
@@ -104,11 +94,8 @@ export default function PersonDetailView({
 
       <MemorySummaryCard
         person={person}
-        aiEnabled={aiEnabled}
         onCompleteFollowUp={onCompleteFollowUp}
         onDeleteFollowUp={onDeleteFollowUp}
-        onSaveFollowUp={onSaveFollowUp}
-        onSaveBriefing={onSaveBriefing}
       />
 
       {person.history.length === 0 && !person.preferences.notes && (
@@ -144,7 +131,6 @@ export default function PersonDetailView({
       {(activeTab === "최근 이야기" || activeTab === "전체 기록") && (
         <PersonTimeline person={person} onUpdateHistory={onUpdateHistory} onDeleteHistory={onDeleteHistory} />
       )}
-      {activeTab === "빠른 기록" && <QuickRecordPanel person={person} aiEnabled={aiEnabled} onSave={onSaveStory} />}
       {activeTab === "정보" && <PersonInfoSection person={person} onEdit={onEdit} />}
       {activeTab === "함께한 마음" && <EventHistorySection person={person} onSaveEvent={onSaveEvent} onDeleteEvent={onDeleteEvent} />}
     </div>

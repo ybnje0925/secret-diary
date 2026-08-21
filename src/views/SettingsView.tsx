@@ -4,7 +4,6 @@ import {
   ChevronRight,
   CloudDownload,
   CloudUpload,
-  Cpu,
   Database,
   FileDown,
   FlaskConical,
@@ -14,7 +13,6 @@ import {
   Lock,
   Send,
   ShieldCheck,
-  Sparkles,
   Trash2,
   X
 } from "lucide-react";
@@ -58,35 +56,6 @@ type TestNotificationScenario =
 
 type NotificationPermissionState = NotificationPermission | "unsupported";
 
-type AiDiagnostics = {
-  httpStatus?: number;
-  googleErrorCode?: string | number;
-  googleErrorStatus?: string;
-  message?: string;
-};
-
-type AiHealthResult = {
-  success: boolean;
-  configured?: boolean;
-  provider?: string;
-  model?: string;
-  reason?: string;
-  diagnostics?: AiDiagnostics;
-  endpoints?: {
-    summarize?: string;
-    personBriefing?: string;
-    checkInSuggestions?: string;
-    checkInStarters?: string;
-  };
-  meta?: {
-    provider?: string;
-    model?: string;
-    fallback?: boolean;
-    reason?: string;
-    diagnostics?: AiDiagnostics;
-  };
-};
-
 export default function SettingsView({
   people,
   customGroups,
@@ -108,30 +77,24 @@ export default function SettingsView({
   const [restoreBackup, setRestoreBackup] = useState<{ salt: string; payload: string } | null>(null);
   const [restorePin, setRestorePin] = useState("");
   const [restoreError, setRestoreError] = useState("");
-  const [aiInfoOpen, setAiInfoOpen] = useState(false);
   const [toast, setToast] = useState("");
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>("default");
   const [notificationScenario, setNotificationScenario] = useState<TestNotificationScenario>("overdue");
   const [notificationStatus, setNotificationStatus] = useState("");
-  const [aiHealth, setAiHealth] = useState<AiHealthResult | null>(null);
-  const [aiHealthError, setAiHealthError] = useState("");
-  const [aiHealthCheckedAt, setAiHealthCheckedAt] = useState("");
-  const [aiHealthLoading, setAiHealthLoading] = useState(false);
 
   useEffect(() => {
     const onOverlayBack = (event: Event) => {
-      if (!pinModalOpen && !restoreBackup && !aiInfoOpen) return;
+      if (!pinModalOpen && !restoreBackup) return;
       event.preventDefault();
       setPinModalOpen(false);
       setRestoreBackup(null);
       setRestorePin("");
       setRestoreError("");
-      setAiInfoOpen(false);
     };
 
     window.addEventListener("saramdam:overlay-back", onOverlayBack);
     return () => window.removeEventListener("saramdam:overlay-back", onOverlayBack);
-  }, [aiInfoOpen, pinModalOpen, restoreBackup]);
+  }, [pinModalOpen, restoreBackup]);
 
   useEffect(() => {
     if (!testToolsEnabled) return;
@@ -275,33 +238,6 @@ export default function SettingsView({
     });
   };
 
-  const handleCheckAiHealth = async () => {
-    if (!testToolsEnabled || aiHealthLoading) return;
-    setAiHealthLoading(true);
-    setAiHealthError("");
-    setAiHealth(null);
-    try {
-      const response = await fetch("/api/ai-health", { method: "GET" });
-      const contentType = response.headers.get("content-type") || "unknown";
-      const text = await response.text();
-      let data: AiHealthResult;
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(`AI 상태 API가 JSON이 아닌 응답을 반환했습니다. (status ${response.status}, ${contentType})`);
-      }
-      if (!response.ok || !data.success) {
-        throw new Error("AI 상태 확인에 실패했어요.");
-      }
-      setAiHealth(data);
-      setAiHealthCheckedAt(formatDateTime(new Date()));
-    } catch (error: any) {
-      setAiHealthError(error?.message || "AI 상태 확인에 실패했어요.");
-    } finally {
-      setAiHealthLoading(false);
-    }
-  };
-
   const handleRequestNotificationPermission = async () => {
     if (!testToolsEnabled) return;
     if (!("Notification" in window)) {
@@ -376,19 +312,6 @@ export default function SettingsView({
         <input ref={fileInputRef} type="file" accept=".json,application/json" className="hidden" onChange={handleRestoreFile} />
       </Section>
 
-      <Section title="AI">
-        <SettingControl icon={<Sparkles />} label="AI 기능">
-          <button
-            type="button"
-            onClick={() => onSettingsChange({ aiEnabled: !appSettings.aiEnabled })}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium ${appSettings.aiEnabled ? "bg-[#d85b36] text-white" : "bg-[#f4e8dc] text-[#7c6252]"}`}
-          >
-            {appSettings.aiEnabled ? "사용 중" : "꺼짐"}
-          </button>
-        </SettingControl>
-        <SettingButton icon={<Info />} label="AI가 사용하는 정보" value="자세히" onClick={() => setAiInfoOpen(true)} />
-      </Section>
-
       <Section title="알림 및 기억">
         <ToggleRow
           icon={<Bell />}
@@ -435,45 +358,6 @@ export default function SettingsView({
           </div>
           <SettingButton icon={<Database />} label="테스트 데이터 생성" value="20명 · 400개 기록" onClick={handleCreateTestData} />
           <SettingButton icon={<Trash2 />} label="테스트 데이터 초기화" value="PIN 유지" danger onClick={handleClearTestData} />
-          <SettingButton icon={<Cpu />} label="AI 상태 확인" value={aiHealthLoading ? "확인 중" : "Gemini 연결 진단"} onClick={handleCheckAiHealth} />
-          {(aiHealth || aiHealthError) && (
-            <div className="border-b border-[#f0dfd1] px-3.5 py-3">
-              <h3 className="text-[13px] font-semibold text-[#2f1b12]">AI 연결 상태</h3>
-              {aiHealthError ? (
-                <p className="mt-2 text-[12px] leading-[1.5] text-[#b53c2f]">{aiHealthError}</p>
-              ) : aiHealth ? (
-                <dl className="mt-2 grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1.5 text-[12px] leading-[1.5]">
-                  <dt className="font-medium text-[#8f7564]">Provider</dt>
-                  <dd className="font-semibold text-[#2f1b12]">{providerLabel(aiHealth.provider || aiHealth.meta?.provider)}</dd>
-                  <dt className="font-medium text-[#8f7564]">Model</dt>
-                  <dd className="text-[#5a392a]">{aiHealth.model || aiHealth.meta?.model || "-"}</dd>
-                  <dt className="font-medium text-[#8f7564]">API Key</dt>
-                  <dd className="text-[#5a392a]">{aiHealth.configured ? "정상" : "없음"}</dd>
-                  <dt className="font-medium text-[#8f7564]">이야기 정리</dt>
-                  <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.summarize)}</dd>
-                  <dt className="font-medium text-[#8f7564]">최근 브리핑</dt>
-                  <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.personBriefing)}</dd>
-                  <dt className="font-medium text-[#8f7564]">중지된 추천 API</dt>
-                  <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.checkInSuggestions)}</dd>
-                  <dt className="font-medium text-[#8f7564]">중지된 문구 API</dt>
-                  <dd className="text-[#5a392a]">{endpointLabel(aiHealth.endpoints?.checkInStarters)}</dd>
-                  {(aiHealth.reason || aiHealth.meta?.reason) && (
-                    <>
-                      <dt className="font-medium text-[#8f7564]">사유</dt>
-                      <dd className="text-[#b53c2f]">{reasonLabel(aiHealth.reason || aiHealth.meta?.reason || "")}</dd>
-                    </>
-                  )}
-                  <AiDiagnosticsRows diagnostics={aiHealth.diagnostics || aiHealth.meta?.diagnostics} />
-                  {aiHealthCheckedAt && (
-                    <>
-                      <dt className="font-medium text-[#8f7564]">마지막 확인</dt>
-                      <dd className="text-[#5a392a]">{aiHealthCheckedAt}</dd>
-                    </>
-                  )}
-                </dl>
-              ) : null}
-            </div>
-          )}
           <SettingControl icon={<BellRing />} label="알림 상태">
             <span className="text-xs font-medium text-[#7c6252]">{notificationPermissionLabel(notificationPermission)}</span>
           </SettingControl>
@@ -525,22 +409,6 @@ export default function SettingsView({
             setRestoreError("");
           }}
         />
-      )}
-
-      {aiInfoOpen && (
-        <ModalShell title="AI가 사용하는 정보" onClose={() => setAiInfoOpen(false)}>
-          <div className="space-y-4 text-sm leading-relaxed text-[#5e473a]">
-            <InfoBlock title="이야기 정리">
-              사용자가 직접 입력하거나 붙여넣은 텍스트에서 핵심 정보, 가족, 관심사, 일정 같은 기억할 내용을 정리합니다. 저장 여부는 사용자가 마지막에 선택합니다.
-            </InfoBlock>
-            <InfoBlock title="최근 기록 브리핑">
-              사용자가 버튼을 누를 때만 최근 기록 일부를 보내 2~4줄 브리핑을 만들고, 같은 기록이면 저장된 결과를 다시 보여줍니다.
-            </InfoBlock>
-            <InfoBlock title="AI를 끄면">
-              사람 등록, 직접 기록, 검색, 상세보기, 백업/복원은 계속 사용할 수 있고 AI 기록 정리와 최근 브리핑만 비활성화됩니다.
-            </InfoBlock>
-          </div>
-        </ModalShell>
       )}
 
       {toast && (
@@ -614,15 +482,6 @@ function IconSlot({ children, danger }: { children?: ReactNode; danger?: boolean
     <span className={`flex h-7 w-7 items-center justify-center ${danger ? "text-[#b53c2f]" : "text-[#5a392a]"} [&>svg]:h-4 [&>svg]:w-4`}>
       {children}
     </span>
-  );
-}
-
-function InfoBlock({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="rounded-[16px] bg-[#fff6ee] p-3">
-      <h3 className="text-sm font-semibold text-[#2f1b12]">{title}</h3>
-      <p className="mt-1 text-[13px] leading-[1.6] text-[#7c6252]">{children}</p>
-    </section>
   );
 }
 
@@ -742,63 +601,6 @@ function notificationPermissionLabel(permission: NotificationPermissionState) {
   if (permission === "denied") return "알림 차단됨";
   if (permission === "unsupported") return "지원 안 함";
   return "아직 선택하지 않음";
-}
-
-function providerLabel(provider?: string) {
-  if (provider === "gemini") return "Gemini";
-  if (provider === "local" || provider === "local-fallback") return "Local fallback";
-  return "-";
-}
-
-function endpointLabel(status?: string) {
-  if (status === "ok") return "정상";
-  if (status === "fallback") return "fallback";
-  if (status === "disabled") return "사용 안 함";
-  return "-";
-}
-
-function AiDiagnosticsRows({ diagnostics }: { diagnostics?: AiDiagnostics }) {
-  if (!diagnostics) return null;
-  return (
-    <>
-      <dt className="font-medium text-[#8f7564]">Gemini HTTP</dt>
-      <dd className="text-[#5a392a]">{diagnostics.httpStatus || "-"}</dd>
-      <dt className="font-medium text-[#8f7564]">Google code</dt>
-      <dd className="text-[#5a392a]">{diagnostics.googleErrorCode || "-"}</dd>
-      <dt className="font-medium text-[#8f7564]">Error status</dt>
-      <dd className="text-[#5a392a]">{diagnostics.googleErrorStatus || "-"}</dd>
-      <dt className="font-medium text-[#8f7564]">Error message</dt>
-      <dd className="break-words text-[#5a392a]">{diagnostics.message || "-"}</dd>
-    </>
-  );
-}
-
-function reasonLabel(reason: string) {
-  const labels: Record<string, string> = {
-    GEMINI_API_KEY_MISSING: "GEMINI_API_KEY가 Preview 환경에 없습니다.",
-    GEMINI_API_KEY_PLACEHOLDER: "GEMINI_API_KEY가 placeholder 값입니다.",
-    GEMINI_REQUEST_FAILED: "Gemini 요청에 실패했습니다.",
-    GEMINI_EMPTY_RESPONSE: "Gemini가 빈 응답을 반환했습니다.",
-    INVALID_RESPONSE: "Gemini 응답 형식이 올바르지 않습니다.",
-    RATE_LIMIT: "Gemini quota 또는 rate limit에 걸렸습니다.",
-    QUOTA_EXCEEDED: "Gemini quota가 초과되었습니다.",
-    MODEL_ERROR: "Gemini 모델명 또는 모델 접근에 문제가 있습니다.",
-    MODEL_NOT_FOUND: "Gemini 모델을 찾을 수 없거나 접근할 수 없습니다.",
-    INVALID_API_KEY: "Gemini API Key가 잘못되었거나 권한이 없습니다.",
-    PERMISSION_DENIED: "Gemini API Key 권한이 거부되었습니다.",
-    NO_CANDIDATES: "추천에 사용할 저장 기록이 부족합니다."
-  };
-  return labels[reason] || reason;
-}
-
-function formatDateTime(date: Date) {
-  return date.toLocaleString("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
 }
 
 function createTestNotificationPayload(scenario: TestNotificationScenario, people: Person[]) {
